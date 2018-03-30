@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 # 5 (a)
 college = pd.read_csv("College.csv")
@@ -14,9 +15,11 @@ college.describe()
 
 # 5 (c) ii.
 pd.scatter_matrix(college.iloc[:, [3,5]])
+plt.suptitle("5cii")
 
 # 5 (c) iii.
 college.loc[:, ['Room.Board', 'Private']].boxplot(by='Private')
+plt.suptitle("5ciii")
 
 # 5 (c) iv.
 elite = np.array([False]*len(college))
@@ -25,13 +28,15 @@ college['Elite'] = pd.Series(elite, index=college.index)
 
 college.loc[:, 'Elite'].describe(include=['bool'])
 college.loc[:, ['Room.Board', 'Elite']].boxplot(by='Elite')
+plt.suptitle("5civ")
 
 # 5 (c) v.
 [college.loc[:, 'Room.Board'].hist(bins=x, alpha=0.7, stacked=False) for x in [10, 20, 30, 40]]
+plt.suptitle("5cv")
 
 # 5 (c) vi.
 pd.scatter_matrix(college.loc[:, ['Expend', 'Grad.Rate', 'S.F.Ratio']])
-
+plt.suptitle("5cvi")
 
 # 6
 auto = pd.read_csv('auto.csv')
@@ -55,3 +60,6 @@ six_sum(auto.loc[:, quant_cols].describe())
 # 6 (d)
 six_sum(auto.loc[0:(len(auto)-50), quant_cols].describe())
 
+# 6 (e)
+pd.scatter_matrix(auto.loc[:, quant_cols])
+plt.suptitle("6e")
