@@ -1,6 +1,8 @@
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model.ridge import Ridge
 from sklearn.preprocessing import *
+from statsmodels.formula.api import ols
+import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy  as np
@@ -12,7 +14,7 @@ log  = np.log
 np.random.seed(42)
 
 
-def exercise_two():
+def exercise_one():
     hitters = pd.read_csv('https://raw.githubusercontent.com/selva86/datasets/master/Hitters.csv', sep=',', header=0).dropna()
     X = pd.get_dummies(hitters, drop_first=True)
     y = hitters.Salary
@@ -98,3 +100,18 @@ def exercise_two():
     # -1.22808378832e-05
 
 
+def exercise_two():
+    auto = pd.read_csv('http://www-bcf.usc.edu/~gareth/ISL/Auto.csv',
+                       sep=',', header=0, na_values='?').dropna()
+
+    model = ols(formula='mpg ~ horsepower', data=auto).fit()
+    model.summary()
+
+    fig, ax = plt.subplots()
+    sm.graphics.plot_fit(model, 1, ax=ax)
+
+    plt.clf()
+    plt.scatter(model.fittedvalues, model.resid, alpha=.7, c='#2F3336')
+    plt.title('Residuals vs. fitted values', fontsize=16)
+    plt.ylabel("fitted value", fontsize=14)
+    plt.xlabel("residual", fontsize=14)
