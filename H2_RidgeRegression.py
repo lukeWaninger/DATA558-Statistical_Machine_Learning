@@ -117,21 +117,40 @@ def exercise_two():
     plt.xlabel("residual", fontsize=14)
 
 
-#def exercise_three():
-auto = pd.read_csv('http://www-bcf.usc.edu/~gareth/ISL/Auto.csv',
-                       sep=',', header=0, na_values='?').dropna()
+def exercise_three():
+    auto = pd.read_csv('http://www-bcf.usc.edu/~gareth/ISL/Auto.csv',
+                           sep=',', header=0, na_values='?').dropna()
 
-pd.scatter_matrix(auto)
-auto.corr()
+    pd.scatter_matrix(auto)
+    auto.corr()
 
-formula = 'mpg ~' + ' + '.join(auto.columns[1:-1])
-model = ols(formula=formula, data=auto).fit()
+    formula = 'mpg ~' + ' + '.join(auto.columns[1:-1])
+    model = ols(formula=formula, data=auto).fit()
 
-plt.clf()
-plt.scatter(model.fittedvalues, model.resid, alpha=.7, c='#2F3336')
-plt.title('Residuals vs. fitted values', fontsize=16)
-plt.ylabel("fitted value", fontsize=14)
-plt.xlabel("residual", fontsize=14)
+    plt.clf()
+    plt.scatter(model.fittedvalues, model.resid, alpha=.7, c='#2F3336')
+    plt.title('Residuals vs. fitted values', fontsize=16)
+    plt.ylabel("fitted value", fontsize=14)
+    plt.xlabel("residual", fontsize=14)
 
-model = ols(formula='mpg ~ weight + cylinders + acceleration + weight*cylinders + weight*acceleration', data=auto).fit()
-model.summary()
+    model = ols(formula='year ~ mpg + weight + cylinders + mpg*weight + mpg*displacement + mpg*cylinders',
+                data=auto).fit()
+    model.summary()
+
+    auto['mpg_log_t'] = log(auto.mpg)
+    formula = 'mpg_log_t ~' + ' + '.join(auto.columns[1:-1])
+    model = ols(formula=formula, data=auto).fit()
+    model.summary()
+
+    fig, ax = plt.subplots()
+    sm.graphics.plot_fit(model, 1, ax=ax)
+
+    plt.clf()
+    plt.scatter(model.fittedvalues, model.resid, alpha=.7, c='#2F3336')
+    plt.title('Residuals vs. fitted values (log transformed response)', fontsize=16)
+    plt.ylabel("fitted value", fontsize=14)
+    plt.xlabel("residual", fontsize=14)
+
+
+def exercise_four():
+    pass
