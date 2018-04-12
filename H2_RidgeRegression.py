@@ -2,16 +2,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model.ridge import Ridge
 from sklearn.preprocessing import *
 from statsmodels.formula.api import ols
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
+import statsmodels.api as sm
 import pandas as pd
 import numpy  as np
 
 
-# misc setup
-norm = np.linalg.norm
-log  = np.log
-np.random.seed(42)
+# misc setup for readability
+norm  = np.linalg.norm
+rand  = np.random
+log   = np.log
+rand.seed(42)
 
 
 def exercise_one():
@@ -153,4 +154,12 @@ def exercise_three():
 
 
 def exercise_four():
-    pass
+    x = rand.normal(5, 1, 100)
+    y = np.array([xi * rand.normal(2, .5, 1) for xi in x]).flatten()
+    b1 = sum([x*y for x, y in zip(x, y)])/sum(x**2)
+    b2 = sum([x*y for x, y in zip(y, x)])/sum(y**2)
+
+    x = rand.normal(5, 1*10**-15, 100)
+    y = rand.normal(5, 1*10**-15, 100)
+    b1 = sum([x * y for x, y in zip(x, y)]) / sum(x ** 2)
+    b2 = sum([x * y for x, y in zip(y, x)]) / sum(y ** 2)
