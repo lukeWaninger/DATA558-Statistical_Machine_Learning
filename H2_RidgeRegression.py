@@ -9,9 +9,9 @@ import numpy  as np
 
 
 # misc setup for readability
-norm  = np.linalg.norm
-rand  = np.random
-log   = np.log
+norm = np.linalg.norm
+rand = np.random
+log  = np.log
 rand.seed(42)
 
 
