@@ -21,11 +21,11 @@ def exercise_one():
     y = hitters.Salary
 
     # standardize and split the data
-    x_scaler = StandardScaler().fit(X)
-    y_scaler = StandardScaler().fit(y.values.reshape(-1,1))
+    x_scalar = StandardScaler().fit(X)
+    y_scalar = StandardScaler().fit(y.values.reshape(-1,1))
 
-    X = x_scaler.transform(X)
-    y = y_scaler.transform(y.values.reshape((-1, 1))).reshape((-1))
+    X = x_scalar.transform(X)
+    y = y_scalar.transform(y.values.reshape((-1, 1))).reshape((-1))
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
