@@ -1,3 +1,4 @@
+from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
@@ -12,43 +13,36 @@ log  = np.log
 
 
 class LogisticRegression:
-    def __init__(self, X_train, y_train, lamda=0.01):
+    def __init__(self, X_train, y_train, X_test, y_test, lamda=0.01, max_iter=500):
         # private
         self._x = X_train
         self._y = y_train
+        self._xtest = X_test
+        self._ytest = y_test
         self._eps = 0.001
         self._lamda = lamda
+        self._max_iter = max_iter
         self._n, self._d = X_train.shape
         self._eta = self.__calc_t_init()
+        self._betas = None
 
-        # public
-        self.betas = None
-
-        # function variables
-        self.__vsum = np.vectorize(self.__inner_sum, signature='(x),(y),(z)->()')
+    def coef_(self): return self._betas
 
     def fit(self, algo='grad'):
-        self.betas = [np.ones(self._n)]
+        self._betas = [np.ones(self._d)]
 
         if algo == 'grad':
             self.__graddescent()
         elif algo == 'fgrad':
+            self._betas.append(np.ones(self._d))
             self.__fastgradalgo()
         else:
-            raise Exception("algorithm <%s> is not avalailable" % algo)
+            raise Exception("algorithm <%s> is not available" % algo)
+
         return self
 
     def objective_vals(self):
-        return [self.__objective(b) for b in self.betas]
-
-    @staticmethod
-    def __inner_sum(x, y, beta):
-        return log(1 + exp(-y[0] * x.T @ beta))
-
-    @staticmethod
-    def __print_status(status):
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print(status)
+        return [self.__objective(b) for b in self._betas[-1]]
 
     def __calc_t_init(self):
         x, l, n = self._x, self._lamda, self._n
@@ -59,31 +53,25 @@ class LogisticRegression:
     def __computegrad(self, b):
         x, y, l, n = self._x, self._y, self._lamda, self._n
 
-        p = (1 + exp(y * (x @ b))) ** -1
-        return 2 * l * b - (x.T @ np.diag(p) @ y) / n ** 2
+        p = (1 + exp(y * (x @ b)))**-1
+        return 2*l*b - (x.T @ np.diag(p) @ y)/n
 
     def __objective(self, beta):
-        sum, x, y, n, l = self.__vsum, self._x, self._y, self.n, self._lamda
+        x, y, n, l = self._x, self._y, self._n, self._lamda
 
-        vec = sum(x=x, y=y, beta=beta)
-        return (np.sum(vec) / n) + l * norm(beta) ** 2
+        return np.sum([log(1+exp(-yi * xi.T @ beta)) for xi, yi in zip(x, y)])/n + l*norm(beta)**2
 
-    def __backtracking(self, beta, t_eta=.5, alpha=1.5, max_iter=50):
+    def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
         l, t = self._lamda, self._eta
 
         gb   = self.__computegrad(beta)
         n_gb = norm(gb)
-        o_gb = self.__objective(beta)
 
         found_t, i = False, 0
-        while not found_t and i < max_iter:
-            a = self.__objective(beta=self.__computegrad(b=beta - t * gb))
-            b = o_gb - alpha * t * n_gb ** 2
-
-            print("%s %s %s" % (a, b, n_gb))
-            if a < b:
+        while not found_t and i < self._max_iter:
+            if self.__objective(beta - t*gb) < self.__objective(beta) - alpha * t * n_gb**2:
                 found_t = True
-            elif i == max_iter-1:
+            elif i == self._max_iter-1:
                 raise Exception("max number of backtracking iterations reached")
             else:
                 t *= t_eta
@@ -93,42 +81,39 @@ class LogisticRegression:
         return self._eta
 
     def __fastgradalgo(self):
-        theta = np.ones(self._n)
-        grad_x = self.__computegrad(self.betas[-1])
+        theta = np.ones(self._d)
+        grad  = self.__computegrad(theta)
 
         i = 0
-        while norm(grad_x) > self._eps and i < 500:
-            b0, b1 = self.betas[-1], self.betas[-2]
-
+        while norm(grad) > self._eps and i < self._max_iter:
+            b0 = self._betas[-1]
             t = self.__backtracking(b0)
+            grad = self.__computegrad(theta)
 
-            self.betas.append(theta - t * grad_x)
-            theta = b0 + (i/(i+3)) * (b0 - b1)
-            grad_x = self.__computegrad(b0)
+            b1 = theta - t*grad
+            self._betas.append(b1)
+            theta = b1 + (i/(i+3))*(b1-b0)
 
-            o_val = self.__objective(b0)
-            self.__print_status("i: %s \tt: %s \t obj: %s" % (i, t, o_val))
+            i += 1
 
     def __graddescent(self):
-        grad_x = self.__computegrad(self.betas[-1])
+        grad_x = self.__computegrad(self._betas[-1])
 
         i = 0
-        while norm(grad_x) > self._eps and i < 500:
-            b0 = self.betas[-1]
+        while norm(grad_x) > self._eps and i < self._max_iter:
+            b0 = self._betas[-1]
             t = self.__backtracking(b0)
 
-            self.betas.append(b0 - t * grad_x)
+            self._betas.append(b0 - t * grad_x)
             grad_x = self.__computegrad(b0)
 
-            o_val = self.__objective(b0)
-            self.__print_status("i: %s \tt: %s \t obj: %s" % (i, t, o_val))
             i += 1
 
 
 def exercise_1():
     try:
         spam = pd.read_csv('data/spam.csv', sep=',').dropna()
-    except:
+    except FileNotFoundError as e:
         spam = pd.read_csv('spam.csv', sep=',').dropna()
 
     X = spam.loc[:, spam.columns != 'type']
@@ -140,8 +125,13 @@ def exercise_1():
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True, random_state=42)
 
-    cv = LogisticRegression(X_train, y_train).fit()
+    cv_grad  = LogisticRegression(X_train, y_train, X_test, y_test).fit()
+    cv_fgrad = LogisticRegression(X_train, y_train, X_test, y_test).fit(algo='fgrad')
+    cv_scikt = LogisticRegressionCV(fit_intercept=False, solver='sag', max_iter=500).fit(X_train, y_train)
 
+    return cv_grad, cv_fgrad, cv_scikt
+
+cv_grad, cv_fgrad, cv_scikt = exercise_1()
 
 if __name__ == '__main__':
     exercise_1()
