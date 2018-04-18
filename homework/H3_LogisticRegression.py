@@ -13,26 +13,45 @@ log = np.log
 
 
 class MyLogisticRegression:
-    def __init__(self, X_train, y_train, X_test, y_test, lamda=0.01, max_iter=500):
-        # private
+    def __init__(self, X_train, y_train, lamda=0.01, max_iter=500):
         self._x = X_train
         self._y = y_train
-        self._xtest = X_test
-        self._ytest = y_test
         self._eps = 0.001
         self._lamda = lamda
         self._max_iter = max_iter
         self._n, self._d = X_train.shape
         self._eta = self.__calc_t_init()
         self._betas = None
+        self._objective_vals = None
+        self._training_errors = None
 
-        # public
-        self.coef_ = self.__betas()
-        self.objective_vals_ = self.__objective_vals()
+    @property
+    def coef_(self):
+        return self._betas[-1] if self._betas is not None else []
+
+    @property
+    def objective_vals_(self):
+        if self._objective_vals is not None:
+            return self._objective_vals
+        else:
+            self._objective_vals = [self.__objective(b) for b in self._betas] if self._betas is not None else []
+            return self._objective_vals
+
+    @property
+    def training_errors_(self):
+        if self._training_errors is not None:
+            return self._training_errors
+        else:
+            yhats = [1 if self._x @ b > 0 else -1 for b in self._betas]
+            correct = [1 if y == yhat else 0 for y, yhat in zip(yhats, self._y)]
+            self._training_errors = sum(correct)/len(correct)
+            return self._training_errors
 
     # public methods
     def fit(self, algo='grad'):
         self._betas = [np.ones(self._d)]
+        self._objective_vals = None
+        self._training_errors = None
 
         if algo == 'grad':
             self.__graddescent()
@@ -44,12 +63,14 @@ class MyLogisticRegression:
 
         return self
 
-    # getters
-    def __objective_vals(self):
-        return [self.__objective(b) for b in self._betas[-1]]
+    def predict(self, x_test):
+        return [1 if xi @ self.coef_  > 0 else -1 for xi in x_test]
 
-    def __betas(self):
-        return self._betas[-1] if self._betas is not None else []
+    def predict_proba(self):
+        pass
+
+    def accuracy_score(self):
+        pass
 
     # private methods
     def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
@@ -74,7 +95,7 @@ class MyLogisticRegression:
     def __calc_t_init(self):
         x, l, n = self._x, self._lamda, self._n
 
-        m = np.max(1 / n * np.linalg.eigvals(x @ x.T)) + l
+        m = np.max(1/n * np.linalg.eigvals(x.T @ x)) + l
         return 1 / np.float(m)
 
     def __computegrad(self, b):
@@ -117,6 +138,9 @@ class MyLogisticRegression:
 
         return np.sum([log(1 + exp(-yi * xi.T @ beta)) for xi, yi in zip(x, y)]) / n + l * norm(beta) ** 2
 
+    def __repr__(self):
+        return "MyLogisticRegression(C=%s, eps=%s, max_iter=%s)" % (self._lamda, self._eps, self._max_iter)
+
 
 def exercise_1():
     try:
@@ -133,14 +157,21 @@ def exercise_1():
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True, random_state=42)
 
-    cv_grad = MyLogisticRegression(X_train, y_train, X_test, y_test).fit()
-    cv_fgrad = MyLogisticRegression(X_train, y_train, X_test, y_test).fit(algo='fgrad')
+    cv_grad  = MyLogisticRegression(X_train, y_train).fit()
+    cv_fgrad = MyLogisticRegression(X_train, y_train).fit(algo='fgrad')
     cv_scikt = LogisticRegression(fit_intercept=False, C=.1667, solver='saga', max_iter=500).fit(X_train, y_train)
 
-    return cv_grad, cv_fgrad, cv_scikt
+    plt.clf()
+    pgrad,  = plt.plot(cv_grad.objective_vals_, label='grad')
+    pfgrad, = plt.plot(cv_fgrad.objective_vals_, label='fgrad')
+    plt.legend(handles=[pgrad, pfgrad], fontsize=14)
+    plt.title('Gradient vs FastGradient Descent', fontsize=16)
+    plt.xlabel('Objective value', fontsize=14)
 
 
-cv_grad, cv_fgrad, cv_scikt = exercise_1()
+cv_grad = exercise_1()
+cv_grad.objective_vals_
 
-if __name__ == '__main__':
-    exercise_1()
+
+# if __name__ == '__main__':
+#     exercise_1()
