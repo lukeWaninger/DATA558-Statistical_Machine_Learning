@@ -5,6 +5,7 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 
 # misc setup for readability
 norm = np.linalg.norm
@@ -232,21 +233,28 @@ def exercise_12():
     plt.legend()
 
     # EXERCISE TWO
-    lamdas = np.linspace(0, 3, 100)
+    lamdas = np.linspace(0, 2.5, 100)
     cvs_train = [MyLogisticRegression(X_train, y_train, lamda=l).fit() for l in lamdas]
     errors = [c.training_errors_[-1] for c in cvs_train]
 
     # plot missclassification training error as lambda increases
     plt.clf()
-    plt.scatter(lamdas, errors)
-    plt.plot(lamdas, errors)
+    plt.scatter(lamdas, errors, alpha=0.5)
+    lowess = sm.nonparametric.lowess(errors, lamdas, frac=1./10)
+    plt.plot(lamdas, lowess[:, 1], label='train')
     plt.grid()
-    plt.title('Training error as $\lambda$ increases from one', fontsize=18)
+    plt.title('Train/test missclassification error steadily increases with $\lambda$', fontsize=18)
     plt.xlabel('$\lambda$', fontsize=16)
     plt.ylabel('error', fontsize=16)
 
     # plot for testing errors
-    pred =
+    pred = [c.predict(X_test, c.coef_[0]) for c in cvs_train]
+    errors = [1-np.sum([1 if yh == yt else 0 for yh, yt in zip(p, y_test)])/X_test.shape[0] for p in pred]
+    plt.scatter(lamdas, errors, alpha=0.3)
+    lowess = sm.nonparametric.lowess(errors, lamdas, frac=1. / 10)
+    plt.plot(lamdas, lowess[:, 1], label='test')
+    plt.grid()
+    plt.legend(fontsize=16)
 
 # if __name__ == '__main__':
 #     exercise_1()
