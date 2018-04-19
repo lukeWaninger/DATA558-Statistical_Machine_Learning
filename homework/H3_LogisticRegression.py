@@ -232,8 +232,21 @@ def exercise_12():
     plt.legend()
 
     # EXERCISE TWO
-    cvs_train = [MyLogisticRegression(X_train, y_train, lamda=l).fit() for l in np.linspace(0, 5, 100)]
+    lamdas = np.linspace(0, 3, 100)
+    cvs_train = [MyLogisticRegression(X_train, y_train, lamda=l).fit() for l in lamdas]
+    errors = [c.training_errors_[-1] for c in cvs_train]
 
+    # plot missclassification training error as lambda increases
+    plt.clf()
+    plt.scatter(lamdas, errors)
+    plt.plot(lamdas, errors)
+    plt.grid()
+    plt.title('Training error as $\lambda$ increases from one', fontsize=18)
+    plt.xlabel('$\lambda$', fontsize=16)
+    plt.ylabel('error', fontsize=16)
+
+    # plot for testing errors
+    pred =
 
 # if __name__ == '__main__':
 #     exercise_1()
