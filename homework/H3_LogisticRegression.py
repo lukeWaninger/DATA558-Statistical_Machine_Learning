@@ -27,6 +27,7 @@ class MyLogisticRegression:
         self.__eta = self.__calc_t_init()
         self.__objective_vals = None
         self.__training_errors = None
+        self.__thetas = None
 
     @property
     def coef_(self):
@@ -54,20 +55,33 @@ class MyLogisticRegression:
         return self.__training_errors
 
     # public methods
-    def fit(self, algo='grad'):
-        self._betas = [np.ones(self.__d)]
+    def fit(self, algo='grad', init_method='zeros'):
+        def init(method):
+            if method == 'ones':
+                b = [np.ones(self.__d)]
+            elif method == 'zeros':
+                b = [np.zeros(self.__d)]
+            elif method == 'normal':
+                b = [np.random.normal(0, 1, self.__d)]
+            else:
+                raise Exception('init method not defined')
+            return b
+
+        self._betas = init(init_method)
         self.__objective_vals = None
         self.__training_errors = None
 
         if algo == 'grad':
             self.__graddescent()
         elif algo == 'fgrad':
-            self._betas.append(np.ones(self.__d))
+            self._betas.append(self._betas[-1])
+            self.__thetas = init(init_method)[0]
             self.__fastgradalgo()
             self._betas = self._betas[1:]
         else:
             raise Exception("algorithm <%s> is not available" % algo)
 
+        self._betas = self._betas[1:]
         return self
 
     def predict(self, x, betas=None):
@@ -127,19 +141,19 @@ class MyLogisticRegression:
             i += 1
 
     def __fastgradalgo(self):
-        theta = np.ones(self.__d)
+        theta = self.__thetas
         grad = self.__computegrad(theta)
 
         i = 0
         while norm(grad) > self._eps and i < self._max_iter:
             b0 = self._betas[-1]
-            t = self.__backtracking(b0)
+            t  = self.__backtracking(b0)
             grad = self.__computegrad(theta)
 
             b1 = theta - t*grad
             self._betas.append(b1)
-            theta = b1 + (i/(i+3))*(b1-b0)
 
+            theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
 
     def __objective(self, beta):
@@ -169,8 +183,9 @@ def exercise_12():
     X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True, random_state=0)
 
     # train classifiers using both algorithms and scikit's
-    cv_grad  = MyLogisticRegression(X_train, y_train).fit()
-    cv_fgrad = MyLogisticRegression(X_train, y_train).fit(algo='fgrad')
+    method = 'zeros'
+    cv_grad  = MyLogisticRegression(X_train, y_train).fit(init_method=method)
+    cv_fgrad = MyLogisticRegression(X_train, y_train).fit(algo='fgrad', init_method=method)
     cv_scikt = LogisticRegression(fit_intercept=False,
                                   C=10/X_train.shape[0],
                                   solver='sag',
@@ -206,19 +221,23 @@ def exercise_12():
                                (cv_fgrad.coef_[0], 'fgrad', '#FFAD00')])
 
     # grid search to find the optimal regularization coefficient
-    cv = LogisticRegression(fit_intercept=False)
+    cv = LogisticRegression(fit_intercept=False, max_iter=5000)
     parameters = {'C': np.linspace(.001, 2.0, 20)}
-    gs = GridSearchCV(cv, parameters, scoring='accuracy', n_jobs=-1).fit(X_train, y_train)
+    gs = GridSearchCV(cv, parameters, scoring='neg_log_loss', n_jobs=-1).fit(X_train, y_train)
+    print(gs.best_estimator_)
 
     # retrain my own classifiers with the optimal regularization coefficient
-    cv_grad = MyLogisticRegression(X_train, y_train, lamda=gs.best_estimator_.C).fit()
-    cv_fgrad = MyLogisticRegression(X_train, y_train, lamda=gs.best_estimator_.C).fit(algo='fgrad')
+    cv_grad = MyLogisticRegression(X_train, y_train, lamda=gs.best_estimator_.C).fit(init_method=method)
+    cv_fgrad = MyLogisticRegression(X_train, y_train, lamda=gs.best_estimator_.C).fit(algo='fgrad', init_method=method)
     visualize_objective_comparison(cv_grad.objective_vals_, cv_fgrad.objective_vals_)
 
     # plot training error vs iteration
     plt.clf()
     plt.plot(cv_grad.training_errors_, label='grad')
     plt.plot(cv_fgrad.training_errors_, label='fgrad')
+    plt.title('Training error vs. iteration', fontsize=18)
+    plt.ylabel('error', fontsize=16)
+    plt.xlabel('iteration', fontsize=16)
     plt.legend()
 
     # plot test error vs iteration
@@ -230,17 +249,20 @@ def exercise_12():
     plt.clf()
     plt.plot(err_grad, label='grad')
     plt.plot(err_fgrad, label='fgrad')
+    plt.title('Testing missclassification error vs. iteration', fontsize=18)
+    plt.ylabel('error', fontsize=16)
+    plt.xlabel('iteration', fontsize=16)
     plt.legend()
 
     # EXERCISE TWO
     lamdas = np.linspace(0, 2.5, 100)
-    cvs_train = [MyLogisticRegression(X_train, y_train, lamda=l).fit() for l in lamdas]
+    cvs_train = [MyLogisticRegression(X_train, y_train, lamda=l).fit(init_method='normal') for l in lamdas]
     errors = [c.training_errors_[-1] for c in cvs_train]
 
     # plot missclassification training error as lambda increases
     plt.clf()
-    plt.scatter(lamdas, errors, alpha=0.5)
-    lowess = sm.nonparametric.lowess(errors, lamdas, frac=1./10)
+    plt.scatter(lamdas, errors, alpha=0.3)
+    lowess = sm.nonparametric.lowess(errors, lamdas, frac=1./5)
     plt.plot(lamdas, lowess[:, 1], label='train')
     plt.grid()
     plt.title('Train/test missclassification error steadily increases with $\lambda$', fontsize=18)
@@ -251,10 +273,7 @@ def exercise_12():
     pred = [c.predict(X_test, c.coef_[0]) for c in cvs_train]
     errors = [1-np.sum([1 if yh == yt else 0 for yh, yt in zip(p, y_test)])/X_test.shape[0] for p in pred]
     plt.scatter(lamdas, errors, alpha=0.3)
-    lowess = sm.nonparametric.lowess(errors, lamdas, frac=1. / 10)
+    lowess = sm.nonparametric.lowess(errors, lamdas, frac=1./5)
     plt.plot(lamdas, lowess[:, 1], label='test')
     plt.grid()
     plt.legend(fontsize=16)
-
-# if __name__ == '__main__':
-#     exercise_1()
