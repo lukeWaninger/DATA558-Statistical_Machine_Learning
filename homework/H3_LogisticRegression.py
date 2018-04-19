@@ -1,10 +1,10 @@
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import os
 
 # misc setup for readability
 norm = np.linalg.norm
@@ -13,93 +13,101 @@ log = np.log
 
 
 class MyLogisticRegression:
-    def __init__(self, X_train, y_train, lamda=0.01, max_iter=500):
-        self._x = X_train
-        self._y = y_train
-        self._eps = 0.001
+    def __init__(self, X_train, y_train, lamda=0.1, max_iter=500, eps=0.001):
+        self._betas = None
+        self._eps = eps
         self._lamda = lamda
         self._max_iter = max_iter
-        self._n, self._d = X_train.shape
-        self._eta = self.__calc_t_init()
-        self._betas = None
-        self._objective_vals = None
-        self._training_errors = None
+
+        self.__x = X_train
+        self.__y = y_train
+        self.__n, self.__d = X_train.shape
+
+        self.__eta = self.__calc_t_init()
+        self.__objective_vals = None
+        self.__training_errors = None
 
     @property
     def coef_(self):
-        return self._betas[-1] if self._betas is not None else []
+        return self._betas[-1].reshape(1, 57) if self._betas is not None else []
 
     @property
     def objective_vals_(self):
-        if self._objective_vals is not None:
-            return self._objective_vals
+        if self.__objective_vals is not None:
+            return self.__objective_vals
         else:
-            self._objective_vals = [self.__objective(b) for b in self._betas] if self._betas is not None else []
-            return self._objective_vals
+            self.__objective_vals = [self.__objective(b) for b in self._betas] if self._betas is not None else []
+            return self.__objective_vals
 
     @property
     def training_errors_(self):
-        if self._training_errors is not None:
-            return self._training_errors
+        if self.__training_errors is not None:
+            return self.__training_errors
         else:
-            yhats = [1 if self._x @ b > 0 else -1 for b in self._betas]
-            correct = [1 if y == yhat else 0 for y, yhat in zip(yhats, self._y)]
-            self._training_errors = sum(correct)/len(correct)
-            return self._training_errors
+            self.__training_errors = []
+
+            for b in self._betas:
+                pre = self.predict(self.__x, b)
+                acc = np.sum([1 if yh == yt else 0 for yh, yt in zip(pre, self.__y)]) / self.__n
+                self.__training_errors.append(1 - acc)
+        return self.__training_errors
 
     # public methods
     def fit(self, algo='grad'):
-        self._betas = [np.ones(self._d)]
-        self._objective_vals = None
-        self._training_errors = None
+        self._betas = [np.ones(self.__d)]
+        self.__objective_vals = None
+        self.__training_errors = None
 
         if algo == 'grad':
             self.__graddescent()
         elif algo == 'fgrad':
-            self._betas.append(np.ones(self._d))
+            self._betas.append(np.ones(self.__d))
             self.__fastgradalgo()
+            self._betas = self._betas[1:]
         else:
             raise Exception("algorithm <%s> is not available" % algo)
 
         return self
 
-    def predict(self, x_test):
-        return [1 if xi @ self.coef_  > 0 else -1 for xi in x_test]
+    def predict(self, x, betas=None):
+        if betas is not None:
+            b = betas
+        else:
+            b = self.coef_
 
-    def predict_proba(self):
-        pass
+        return [1 if xi @ b > 0 else -1 for xi in x]
 
-    def accuracy_score(self):
-        pass
+    def objective(self, coef):
+        return self.__objective(coef)
 
     # private methods
     def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
-        l, t = self._lamda, self._eta
+        l, t = self._lamda, self.__eta
 
         gb = self.__computegrad(beta)
         n_gb = norm(gb)
 
         found_t, i = False, 0
         while not found_t and i < self._max_iter:
-            if self.__objective(beta - t * gb) < self.__objective(beta) - alpha * t * n_gb ** 2:
+            if self.__objective(beta - t*gb) < self.__objective(beta) - alpha * t * n_gb**2:
                 found_t = True
-            elif i == self._max_iter - 1:
-                raise Exception("max number of backtracking iterations reached")
+            elif i == self._max_iter-1:
+                break
             else:
                 t *= t_eta
                 i += 1
 
-        self._eta = t
-        return self._eta
+        self.__eta = t
+        return self.__eta
 
     def __calc_t_init(self):
-        x, l, n = self._x, self._lamda, self._n
+        x, l, n = self.__x, self._lamda, self.__n
 
         m = np.max(1/n * np.linalg.eigvals(x.T @ x)) + l
         return 1 / np.float(m)
 
     def __computegrad(self, b):
-        x, y, l, n = self._x, self._y, self._lamda, self._n
+        x, y, l, n = self.__x, self.__y, self._lamda, self.__n
 
         p = (1 + exp(y * (x @ b))) ** -1
         return 2 * l * b - (x.T @ np.diag(p) @ y) / n
@@ -118,7 +126,7 @@ class MyLogisticRegression:
             i += 1
 
     def __fastgradalgo(self):
-        theta = np.ones(self._d)
+        theta = np.ones(self.__d)
         grad = self.__computegrad(theta)
 
         i = 0
@@ -127,14 +135,14 @@ class MyLogisticRegression:
             t = self.__backtracking(b0)
             grad = self.__computegrad(theta)
 
-            b1 = theta - t * grad
+            b1 = theta - t*grad
             self._betas.append(b1)
-            theta = b1 + (i / (i + 3)) * (b1 - b0)
+            theta = b1 + (i/(i+3))*(b1-b0)
 
             i += 1
 
     def __objective(self, beta):
-        x, y, n, l = self._x, self._y, self._n, self._lamda
+        x, y, n, l = self.__x, self.__y, self.__n, self._lamda
 
         return np.sum([log(1 + exp(-yi * xi.T @ beta)) for xi, yi in zip(x, y)]) / n + l * norm(beta) ** 2
 
@@ -142,7 +150,7 @@ class MyLogisticRegression:
         return "MyLogisticRegression(C=%s, eps=%s, max_iter=%s)" % (self._lamda, self._eps, self._max_iter)
 
 
-def exercise_1():
+def exercise_12():
     try:
         spam = pd.read_csv('data/spam.csv', sep=',').dropna()
     except FileNotFoundError as e:
@@ -152,25 +160,79 @@ def exercise_1():
     y = spam.loc[:, 'type'].values
     y[y == 0] = -1
 
+    # scale the data
     scalar = StandardScaler().fit(X)
     X = scalar.transform(X)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True, random_state=42)
+    # split the data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=True, random_state=0)
 
+    # train classifiers using both algorithms and scikit's
     cv_grad  = MyLogisticRegression(X_train, y_train).fit()
     cv_fgrad = MyLogisticRegression(X_train, y_train).fit(algo='fgrad')
-    cv_scikt = LogisticRegression(fit_intercept=False, C=.1667, solver='saga', max_iter=500).fit(X_train, y_train)
+    cv_scikt = LogisticRegression(fit_intercept=False,
+                                  C=10/X_train.shape[0],
+                                  solver='sag',
+                                  max_iter=1000).fit(X_train, y_train)
+
+    def visualize_objective_comparison(grad, fgrad):
+        plt.clf()
+        plt.figure(figsize=(8, 6))
+
+        pgrad,  = plt.plot(grad, label='grad')
+        pfgrad, = plt.plot(fgrad, label='fgrad')
+        plt.legend(handles=[pgrad, pfgrad], fontsize=14)
+        plt.title('Gradient vs FastGradient Descent', fontsize=16)
+        plt.ylabel('objective value', fontsize=14)
+        plt.xlabel('iteration', fontsize=14)
+
+    visualize_objective_comparison(cv_grad.objective_vals_, cv_fgrad.objective_vals_)
+
+    def visualize_beta_comparison(betas):
+        i = 1
+        for beta, label, color in betas:
+            plt.bar(np.arange(len(beta)), beta, width=.75, alpha=.6, label=label, color=color)
+            i += 1
+
+        plt.ylabel(r'$\beta$', fontsize=14)
+        plt.xlabel(r'$\beta_i$', fontsize=14)
+        plt.title(r'$\beta_T$ vs. $\beta^*$', fontsize=16)
+        plt.legend(fontsize=14)
+        plt.axis([0, 57, min([min(b[0]) for b in betas])-.05, max([max(b[0]) for b in betas]) + 0.05])
+        plt.xticks(np.arange(0, 57, step=5))
+
+    visualize_beta_comparison([(cv_scikt.coef_[0], 'scikit', '#3B3A38'),
+                               (cv_fgrad.coef_[0], 'fgrad', '#FFAD00')])
+
+    # grid search to find the optimal regularization coefficient
+    cv = LogisticRegression(fit_intercept=False)
+    parameters = {'C': np.linspace(.001, 2.0, 20)}
+    gs = GridSearchCV(cv, parameters, scoring='accuracy', n_jobs=-1).fit(X_train, y_train)
+
+    # retrain my own classifiers with the optimal regularization coefficient
+    cv_grad = MyLogisticRegression(X_train, y_train, lamda=gs.best_estimator_.C).fit()
+    cv_fgrad = MyLogisticRegression(X_train, y_train, lamda=gs.best_estimator_.C).fit(algo='fgrad')
+    visualize_objective_comparison(cv_grad.objective_vals_, cv_fgrad.objective_vals_)
+
+    # plot training error vs iteration
+    plt.clf()
+    plt.plot(cv_grad.training_errors_, label='grad')
+    plt.plot(cv_fgrad.training_errors_, label='fgrad')
+    plt.legend()
+
+    # plot test error vs iteration
+    pred_grad  = [cv_grad.predict(X_test, b) for b in cv_grad._betas]
+    pred_fgrad = [cv_grad.predict(X_test, b) for b in cv_fgrad._betas]
+    err_grad  = [1-np.sum([1 if yh == yt else 0 for yh, yt in zip(p, y_test)])/X_test.shape[0] for p in pred_grad]
+    err_fgrad = [1-np.sum([1 if yh == yt else 0 for yh, yt in zip(p, y_test)])/X_test.shape[0] for p in pred_fgrad]
 
     plt.clf()
-    pgrad,  = plt.plot(cv_grad.objective_vals_, label='grad')
-    pfgrad, = plt.plot(cv_fgrad.objective_vals_, label='fgrad')
-    plt.legend(handles=[pgrad, pfgrad], fontsize=14)
-    plt.title('Gradient vs FastGradient Descent', fontsize=16)
-    plt.xlabel('Objective value', fontsize=14)
+    plt.plot(err_grad, label='grad')
+    plt.plot(err_fgrad, label='fgrad')
+    plt.legend()
 
-
-cv_grad = exercise_1()
-cv_grad.objective_vals_
+    # EXERCISE TWO
+    cvs_train = [MyLogisticRegression(X_train, y_train, lamda=l).fit() for l in np.linspace(0, 5, 100)]
 
 
 # if __name__ == '__main__':
