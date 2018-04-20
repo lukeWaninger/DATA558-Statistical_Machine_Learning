@@ -1,12 +1,5 @@
-from image_net_ovr import LogMessage
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
+from DATA558_StatisticalML.kaggle.models import LogMessage
 import numpy as np
-import pandas as pd
-import statsmodels.api as sm
 import os
 
 # misc setup for readability
@@ -168,17 +161,12 @@ class MyLogisticRegression:
             theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
             self.__log_queue.put(LogMessage(task='%s vs rest' % self.__idx,
-                                            pid=os.getpid(),
+                                            pid=str(os.getpid()),
                                             iteration=i,
                                             eta=t,
                                             norm_grad=norm(grad),
                                             norm_beta=norm(b0),
                                             objective=self.__objective(b0)))
-
-    def __print_status(self, message):
-        print(message)
-        with open("/mnt/hgfs/descent_logs/descent_log_%s.csv" % self.__idx, "a+") as f:
-            f.writelines(message)
 
     def __objective(self, beta):
         x, y, n, l = self.__x, self.__y, self.__n, self._lamda

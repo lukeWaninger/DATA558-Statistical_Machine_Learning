@@ -1,4 +1,6 @@
-from H3_LogisticRegression import MyLogisticRegression
+from DATA558_StatisticalML.kaggle.mlogreg import MyLogisticRegression
+from DATA558_StatisticalML.kaggle import models
+from DATA558_StatisticalML.kaggle import settings
 from multiprocessing import Process, Queue
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
@@ -8,8 +10,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.engine.url import URL
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import Column, Integer, String, Float, DateTime
-import settings
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,25 +23,12 @@ import time
 Base = declarative_base()
 
 
-class LogMessage(Base):
-    __tablename__ = 'log'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    task = Column(String)
-    pid = Column(String)
-    iteration = Column(Integer)
-    eta = Column(Float)
-    norm_grad = Column(Float)
-    norm_beta = Column(Float)
-    objective = Column(Float)
-
-
 class Context:
     def __init__(self):
         self.__engine = create_engine(URL(**settings.DATABASE))
         self.Session = sessionmaker()
         self.Session.configure(bind=self.__engine)
-        Base.metadata.create_all(self.__engine)
+        models.Base.metadata.create_all(self.__engine)
 
 
 def datapath(filename):
@@ -97,7 +84,7 @@ session = context.Session()
 while True:
     m = qu.get()
 
-    if isinstance(m, LogMessage):
+    if isinstance(m, models.LogMessage):
         session.add(m)
         session.commit()
 
