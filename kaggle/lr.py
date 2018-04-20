@@ -167,12 +167,13 @@ class MyLogisticRegression:
 
             theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
-
-            self.__print_status("%s, %s, %s, %s, %s, %s, %s\n" %
-                                (self.__idx, os.getpid(),
-                                 i, t, norm(grad),
-                                 self.__objective(b0),
-                                 norm(self._betas[-1])))
+            self.__log_queue.put(LogMessage(task='%s vs rest' % self.__idx,
+                                            pid=os.getpid(),
+                                            iteration=i,
+                                            eta=t,
+                                            norm_grad=norm(grad),
+                                            norm_beta=norm(b0),
+                                            objective=self.__objective(b0)))
 
     def __print_status(self, message):
         print(message)
