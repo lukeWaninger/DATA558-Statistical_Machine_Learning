@@ -84,6 +84,9 @@ class MyLogisticRegression:
         self._betas = self._betas[1:]
         return self
 
+    def objective(self, coef):
+        return self.__objective(coef)
+
     def predict(self, x, betas=None):
         if betas is not None:
             b = betas
@@ -92,8 +95,13 @@ class MyLogisticRegression:
 
         return [1 if xi @ b > 0 else -1 for xi in x]
 
-    def objective(self, coef):
-        return self.__objective(coef)
+    def predict_proba(self, x, betas=None):
+        if betas is not None:
+            b = betas
+        else:
+            b = self.coef_
+
+        return [exp(xi@b)/(1 + exp(xi@b)) for xi in x]
 
     # private methods
     def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
@@ -139,6 +147,8 @@ class MyLogisticRegression:
             grad_x = self.__computegrad(b0)
 
             i += 1
+            if i%10 == 0:
+                print(self.__objective(b0))
 
     def __fastgradalgo(self):
         theta = self.__thetas
@@ -277,3 +287,5 @@ def exercise_12():
     plt.plot(lamdas, lowess[:, 1], label='test')
     plt.grid()
     plt.legend(fontsize=16)
+
+

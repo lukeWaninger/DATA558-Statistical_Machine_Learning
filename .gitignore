@@ -3,3 +3,5 @@
 *checkpoints*
 
 *.csv
+*.gz
+*.npy
