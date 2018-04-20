@@ -105,13 +105,13 @@ class MyLogisticRegression:
 
     # private methods
     def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
-        l, t = self._lamda, self.__eta
+        l, t = self._lamda, 1
 
         gb = self.__computegrad(beta)
         n_gb = norm(gb)
 
         found_t, i = False, 0
-        while not found_t and i < self._max_iter:
+        while not found_t and i < 100:
             if self.__objective(beta - t*gb) < self.__objective(beta) - alpha * t * n_gb**2:
                 found_t = True
             elif i == self._max_iter-1:
@@ -152,7 +152,7 @@ class MyLogisticRegression:
 
     def __fastgradalgo(self):
         theta = self.__thetas
-        grad = self.__computegrad(theta)
+        grad  = self.__computegrad(theta)
 
         i = 0
         while norm(grad) > self._eps and i < self._max_iter:

@@ -1,4 +1,4 @@
-from multiprocessing import Lock
+from image_net_ovr import LogMessage
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
@@ -16,18 +16,19 @@ log = np.log
 
 
 class MyLogisticRegression:
-    def __init__(self, X_train, y_train, lamda=2, max_iter=500, eps=0.001, idx=0):
+    def __init__(self, X_train, y_train, lamda=2, max_iter=500, eps=0.001, idx=0, log_queue=None):
         self._betas = None
         self._eps = eps
         self._lamda = lamda
         self._max_iter = max_iter
 
+        self.__log_queue = log_queue
         self.__idx = idx
         self.__x = X_train
         self.__y = y_train
         self.__n, self.__d = X_train.shape
 
-        self.__eta = 1 # self.__calc_t_init()i
+        self.__eta = 1. # self.__calc_t_init()i
         self.__objective_vals = None
         self.__training_errors = None
         self.__thetas = None
