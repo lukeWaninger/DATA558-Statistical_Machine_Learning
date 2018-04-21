@@ -1,15 +1,10 @@
-from DATA558_StatisticalML.kaggle.mlogreg import MyLogisticRegression
-from DATA558_StatisticalML.kaggle import models
-from DATA558_StatisticalML.kaggle import settings
-from multiprocessing import Process, Queue
+from kaggle.mlogreg import MyLogisticRegression
+import kaggle.models as models
+from multiprocessing import Manager, Queue, Process
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
-from sqlalchemy.engine.url import URL
-from sqlalchemy.orm import sessionmaker
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,73 +15,96 @@ import statsmodels.api as sm
 import time
 
 
-Base = declarative_base()
-
-
-class Context:
+class OVR:
     def __init__(self):
-        self.__engine = create_engine(URL(**settings.DATABASE))
-        self.Session = sessionmaker()
-        self.Session.configure(bind=self.__engine)
-        models.Base.metadata.create_all(self.__engine)
+        self.__log_queue = Queue()
+        self.x_train = np.load('kaggle/data/train_features.npy')
+        self.y_train = np.load('kaggle/data/train_labels.npy')
+        self.x_val = np.load('kaggle/data/val_features.npy')
+        self.y_val = np.load('kaggle/data/val_labels.npy')
+
+        scalar = MinMaxScaler().fit(self.x_train)
+        self.x_train = scalar.transform(self.x_train)
+        self.x_val = scalar.transform(self.x_val)
+
+        self.cvs = None
+
+    def train_one(self, idx, log_queue):
+        # set class labels
+        y = np.copy(self.y_train)
+        y[y != idx] = -1
+        y[y == idx] =  1
+
+        # train this class vs the rest
+        print("fitting %s vs rest on pid %s" % (idx, os.getpid()))
+        cv = MyLogisticRegression(X_train=self.x_train, y_train=y, lamda=.01, eps=0.001, idx=idx, log_queue=log_queue)
+        cv = cv.fit(algo='fgrad', init_method='zeros')
+
+        to_dump = {
+            'class': cv.pos_class_,
+            'betas': cv._betas,
+            'eps': cv._eps,
+            'lambda': cv._lamda,
+            'max_iter': cv._max_iter,
+            'y_train': y
+        }
+
+        # pickle them out
+        with open(('kaggle/data/ovrc_%s.pickle' % idx), 'wb') as f:
+            pickle.dump(to_dump, f, pickle.HIGHEST_PROTOCOL)
+
+        log_queue.put("%s finished %s vs rest" % (os.getpid(), idx))
+
+    def train(self):
+        manager = Manager()
+        qu = manager.Queue()
+
+        workers = [Process(target=self.train_one, args=(i, qu)) for i in np.unique(self.y_train)]
+
+        for worker in workers:
+            worker.start()
+            time.sleep(3)
+
+        running = len(np.unique(self.y_train))
+        while True:
+            m = qu.get()
+            if isinstance(m, models.LogMessage):
+                print(str(m))
+                with open('/mnt/hgfs/descent_logs/descent_log.csv', 'a+') as f:
+                    f.writelines(str(m) + "\n")
+            else:
+                print(m)
+                running -= 1
+
+            if running == 0:
+                break
+
+    def load_classifiers(self):
+        cvs = []
+        for i in np.unique(self.y_train):
+            with open(('kaggle/data/ovrc_%s.pickle' % i), 'wb') as f:
+                data = pickle.load(f)
+
+            cv = MyLogisticRegression(self.x_train,
+                                      self.y_train,
+                                      lamda=data['lambda'],
+                                      eps=data['eps'],
+                                      max_iter=data['max_iter'],
+                                      idx=data['class'])
+            cv.betas = data['betas']
+            cvs.append(cv)
+
+        self.cvs = cvs
+
+    def predict(self):
+        predictions = []
+        for i, cv in enumerate(self.cvs):
+            predictions.append(cv.predict_proba(self.x_val))
+
+        return np.array(predictions)
 
 
-def datapath(filename):
-    return os.getcwd() + '/data/' + filename
 
+ovr = OVR()
+ovr.train()
 
-x_train = np.load(datapath('train_features.npy'))
-y_train = np.load(datapath('train_labels.npy'))
-x_val = np.load(datapath('val_features.npy'))
-y_val = np.load(datapath('val_labels.npy'))
-
-scalar = MinMaxScaler().fit(x_train)
-x_train = scalar.transform(x_train)
-x_val = scalar.transform(x_val)
-
-
-def train_one(idx, log_queue):
-    # set class labels
-    y = np.copy(y_train)
-    y[y != idx] = -1
-    y[y == idx] =  1
-
-    # train this class vs the rest
-    print("fitting %s vs rest on pid %s" % (idx, os.getpid()))
-    cv = MyLogisticRegression(X_train=x_train, y_train=y, lamda=.05, eps=0.001, idx=idx, log_queue=log_queue)
-    cv = cv.fit(algo='fgrad', init_method='zeros')
-
-    # pickle them out
-    with open(datapath('classifier_%svr.pickle' % idx), 'wb') as f:
-        pickle.dump(cv, f, pickle.HIGHEST_PROTOCOL)
-
-    print("%s finished %s vs rest" % (os.getpid(), idx))
-
-
-qu = Queue()
-processes = [Process(target=train_one, args=(i, qu)) for i in np.unique(y_train)]
-
-for process in processes:
-    time.sleep(4)
-    process.start()
-
-
-def child_running():
-    for proc in processes:
-        if proc.is_alive():
-            return True
-    return False
-
-
-context = Context()
-session = context.Session()
-
-while True:
-    m = qu.get()
-
-    if isinstance(m, models.LogMessage):
-        session.add(m)
-        session.commit()
-
-    if not child_running() and qu.empty():
-        break

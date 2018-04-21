@@ -1,4 +1,4 @@
-from DATA558_StatisticalML.kaggle.models import LogMessage
+from kaggle.models import LogMessage
 import numpy as np
 import os
 
@@ -10,7 +10,8 @@ log = np.log
 
 class MyLogisticRegression:
     def __init__(self, X_train, y_train, lamda=2, max_iter=500, eps=0.001, idx=0, log_queue=None):
-        self._betas = None
+        self.betas = None
+
         self._eps = eps
         self._lamda = lamda
         self._max_iter = max_iter
@@ -28,26 +29,38 @@ class MyLogisticRegression:
 
     @property
     def coef_(self):
-        return self._betas[-1].reshape(1, 57) if self._betas is not None else []
+        return self.betas[-1].reshape(1, self.__d) if self.betas is not None else []
+
+    @property
+    def pos_class_(self):
+        return self.__idx
 
     @property
     def objective_vals_(self):
         if self.__objective_vals is not None:
             return self.__objective_vals
         else:
-            self.__objective_vals = [self.__objective(b) for b in self._betas] if self._betas is not None else []
+            self.__objective_vals = [self.__objective(b) for b in self.betas] if self.betas is not None else []
             return self.__objective_vals
 
     @property
     def training_errors_(self):
-        if self.__training_errors is not None:
+        def accuracy(pre):
+            return np.sum([yh == yt for yh, yt in zip(pre, self.__y)]) / self.__n
+
+        if self.__training_errors is not None and len(self.__training_errors) == len(self.betas):
             return self.__training_errors
+
+        elif self.__training_errors is not None:
+            acc = accuracy(self.predict(self.__x))
+            self.__training_errors.append(1 - acc)
+
         else:
             self.__training_errors = []
 
-            for b in self._betas:
+            for b in self.betas:
                 pre = self.predict(self.__x, b)
-                acc = np.sum([1 if yh == yt else 0 for yh, yt in zip(pre, self.__y)]) / self.__n
+                acc = accuracy(pre)
                 self.__training_errors.append(1 - acc)
         return self.__training_errors
 
@@ -64,21 +77,21 @@ class MyLogisticRegression:
                 raise Exception('init method not defined')
             return b
 
-        self._betas = init(init_method)
+        self.betas = init(init_method)
         self.__objective_vals = None
         self.__training_errors = None
 
         if algo == 'grad':
             self.__graddescent()
         elif algo == 'fgrad':
-            self._betas.append(self._betas[-1])
+            self.betas.append(self.betas[-1])
             self.__thetas = init(init_method)[0]
             self.__fastgradalgo()
-            self._betas = self._betas[1:]
+            self.betas = self.betas[1:]
         else:
             raise Exception("algorithm <%s> is not available" % algo)
 
-        self._betas = self._betas[1:]
+        self.betas = self.betas[1:]
         return self
 
     def objective(self, coef):
@@ -90,7 +103,7 @@ class MyLogisticRegression:
         else:
             b = self.coef_
 
-        return [1 if xi @ b > 0 else -1 for xi in x]
+        return [1 if xi.T @ b.T > 0 else -1 for xi in x]
 
     def predict_proba(self, x, betas=None):
         if betas is not None:
@@ -133,14 +146,14 @@ class MyLogisticRegression:
         return 2 * l * b - (x.T @ np.diag(p) @ y) / n
 
     def __graddescent(self):
-        grad_x = self.__computegrad(self._betas[-1])
+        grad_x = self.__computegrad(self.betas[-1])
 
         i = 0
         while norm(grad_x) > self._eps and i < self._max_iter:
-            b0 = self._betas[-1]
+            b0 = self.betas[-1]
             t = self.__backtracking(b0)
 
-            self._betas.append(b0 - t * grad_x)
+            self.betas.append(b0 - t * grad_x)
             grad_x = self.__computegrad(b0)
 
             i += 1
@@ -151,12 +164,12 @@ class MyLogisticRegression:
 
         i = 0
         while norm(grad) > self._eps and i < self._max_iter:
-            b0 = self._betas[-1]
+            b0 = self.betas[-1]
             t  = self.__backtracking(b0)
             grad = self.__computegrad(theta)
 
             b1 = theta - t*grad
-            self._betas.append(b1)
+            self.betas.append(b1)
 
             theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
@@ -166,7 +179,9 @@ class MyLogisticRegression:
                                             eta=t,
                                             norm_grad=norm(grad),
                                             norm_beta=norm(b0),
-                                            objective=self.__objective(b0)))
+                                            objective=self.__objective(b0),
+                                            training_error=self.training_errors_[-1],
+                                            accuracy=1-self.training_errors_[-1]))
 
     def __objective(self, beta):
         x, y, n, l = self.__x, self.__y, self.__n, self._lamda
