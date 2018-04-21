@@ -12,9 +12,9 @@ class MyLogisticRegression:
     def __init__(self, X_train, y_train, lamda=2, max_iter=500, eps=0.001, idx=0, log_queue=None):
         self.betas = None
 
-        self._eps = eps
-        self._lamda = lamda
-        self._max_iter = max_iter
+        self.eps = eps
+        self.lamda = lamda
+        self.max_iter = max_iter
 
         self.__log_queue = log_queue
         self.__idx = idx
@@ -115,16 +115,16 @@ class MyLogisticRegression:
 
     # private methods
     def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
-        l, t = self._lamda, self.__eta
+        l, t = self.lamda, self.__eta
 
         gb = self.__computegrad(beta)
         n_gb = norm(gb)
 
         found_t, i = False, 0
-        while not found_t and i < self._max_iter:
+        while not found_t and i < self.max_iter:
             if self.__objective(beta - t*gb) < self.__objective(beta) - alpha * t * n_gb**2:
                 found_t = True
-            elif i == self._max_iter-1:
+            elif i == self.max_iter-1:
                 break
             else:
                 t *= t_eta
@@ -134,13 +134,13 @@ class MyLogisticRegression:
         return self.__eta
 
     def __calc_t_init(self):
-        x, l, n = self.__x, self._lamda, self.__n
+        x, l, n = self.__x, self.lamda, self.__n
 
         m = np.max(1/n * np.linalg.eigvals(x.T @ x)) + l
         return 1 / np.float(m)
 
     def __computegrad(self, b):
-        x, y, l, n = self.__x, self.__y, self._lamda, self.__n
+        x, y, l, n = self.__x, self.__y, self.lamda, self.__n
 
         p = (1 + exp(y * (x @ b))) ** -1
         return 2 * l * b - (x.T @ np.diag(p) @ y) / n
@@ -149,7 +149,7 @@ class MyLogisticRegression:
         grad_x = self.__computegrad(self.betas[-1])
 
         i = 0
-        while norm(grad_x) > self._eps and i < self._max_iter:
+        while norm(grad_x) > self.eps and i < self.max_iter:
             b0 = self.betas[-1]
             t = self.__backtracking(b0)
 
@@ -163,7 +163,8 @@ class MyLogisticRegression:
         grad = self.__computegrad(theta)
 
         i = 0
-        while norm(grad) > self._eps and i < self._max_iter:
+
+        while norm(grad) > self.eps and i < self.max_iter:
             b0 = self.betas[-1]
             t  = self.__backtracking(b0)
             grad = self.__computegrad(theta)
@@ -173,21 +174,22 @@ class MyLogisticRegression:
 
             theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
-            self.__log_queue.put(LogMessage(task='%s vs rest' % self.__idx,
-                                            pid=str(os.getpid()),
-                                            iteration=i,
-                                            eta=t,
-                                            norm_grad=norm(grad),
-                                            norm_beta=norm(b0),
-                                            objective=self.__objective(b0),
-                                            training_error=self.training_errors_[-1],
-                                            accuracy=1-self.training_errors_[-1]))
+
+            # self.__log_queue.put(LogMessage(task='%s vs rest' % self.__idx,
+            #                                 pid=str(os.getpid()),
+            #                                 iteration=i,
+            #                                 eta=t,
+            #                                 norm_grad=norm(grad),
+            #                                 norm_beta=norm(b0),
+            #                                 objective=self.__objective(b0),
+            #                                 training_error=self.training_errors_[-1],
+            #                                 accuracy=1-self.training_errorg_errors_[-1]))
 
     def __objective(self, beta):
-        x, y, n, l = self.__x, self.__y, self.__n, self._lamda
+        x, y, n, l = self.__x, self.__y, self.__n, self.lamda
 
         return np.sum([log(1 + exp(-yi * xi.T @ beta)) for xi, yi in zip(x, y)]) / n + l * norm(beta) ** 2
 
     def __repr__(self):
-        return "MyLogisticRegression(C=%s, eps=%s, max_iter=%s)" % (self._lamda, self._eps, self._max_iter)
+        return "MyLogisticRegression(C=%s, eps=%s, max_iter=%s)" % (self.lamda, self.eps, self.max_iter)
 

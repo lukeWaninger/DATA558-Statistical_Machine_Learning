@@ -27,7 +27,12 @@ class OVR:
         self.x_train = scalar.transform(self.x_train)
         self.x_val = scalar.transform(self.x_val)
 
-        self.cvs = None
+        self.manager = Manager()
+        self.qu = self.manager.Queue()
+        self.cvs = []
+        self.dumps = []
+
+        self.best_lamdas = []
 
     def train_one(self, idx, log_queue):
         # set class labels
@@ -37,47 +42,62 @@ class OVR:
 
         # train this class vs the rest
         print("fitting %s vs rest on pid %s" % (idx, os.getpid()))
-        cv = MyLogisticRegression(X_train=self.x_train, y_train=y, lamda=.01, eps=0.001, idx=idx, log_queue=log_queue)
+        cv = MyLogisticRegression(X_train=self.x_train, y_train=y, lamda=self.best_lamdas[idx][1], eps=0.001, idx=idx, log_queue=log_queue)
         cv = cv.fit(algo='fgrad', init_method='zeros')
+        self.cvs.append(cv)
 
         to_dump = {
-            'class': cv.pos_class_,
-            'betas': cv._betas,
-            'eps': cv._eps,
-            'lambda': cv._lamda,
-            'max_iter': cv._max_iter,
-            'y_train': y
+            'class':    cv.pos_class_,
+            'betas':    cv.betas[-1],
+            'eps':      cv.eps,
+            'lambda':   cv.lamda,
+            'max_iter': cv.max_iter,
         }
 
-        # pickle them out
-        with open(('kaggle/data/ovrc_%s.pickle' % idx), 'wb') as f:
-            pickle.dump(to_dump, f, pickle.HIGHEST_PROTOCOL)
+        self.dumps.append(to_dump)
 
-        log_queue.put("%s finished %s vs rest" % (os.getpid(), idx))
+        # pickle them out
+        # with open(('kaggle/data/ovrc_%s.pickle' % idx), 'wb') as f:
+        #   pickle.dump(to_dump, f, pickle.HIGHEST_PROTOCOL)
+
+        #log_queue.put("%s finished %s vs rest" % (os.getpid(), idx))
 
     def train(self):
-        manager = Manager()
-        qu = manager.Queue()
-
-        workers = [Process(target=self.train_one, args=(i, qu)) for i in np.unique(self.y_train)]
+        workers = [Process(target=self.train_one, args=(i, self.qu)) for i in np.unique(self.y_train)]
 
         for worker in workers:
             worker.start()
             time.sleep(3)
 
-        running = len(np.unique(self.y_train))
-        while True:
-            m = qu.get()
-            if isinstance(m, models.LogMessage):
-                print(str(m))
-                with open('/mnt/hgfs/descent_logs/descent_log.csv', 'a+') as f:
-                    f.writelines(str(m) + "\n")
-            else:
-                print(m)
-                running -= 1
+        # running = len(np.unique(self.y_train))
+        # while True:
+        #     m = self.qu.get()
+        #     if isinstance(m, models.LogMessage):
+        #         print(str(m))
+        #         with open('/mnt/hgfs/descent_logs/descent_log.csv', 'a+') as f:
+        #             f.writelines(str(m) + "\n")
+        #     else:
+        #         print(m)
+        #
+        #     for worker in workers:
+        #         if not worker.is_alive():
+        #             worker.terminate()
+        #             worker.join()
+        #             running -= 1
+        #
+        #     if running == 0:
+        #         break
 
-            if running == 0:
-                break
+    def best_lambdas_per_class(self):
+        for idx in np.unique(self.y_train):
+            y = np.copy(self.y_train)
+            y[y != idx] = -1
+            y[y == idx] = 1
+
+            cv = LogisticRegression(fit_intercept=False, max_iter=5000)
+            parameters = {'C': np.linspace(.001, 2.0, 20)}
+            gs = GridSearchCV(cv, parameters, scoring='neg_log_loss', n_jobs=-1).fit(self.x_train, y)
+            self.best_lamdas.append((idx, gs.best_estimator_.C))
 
     def load_classifiers(self):
         cvs = []
@@ -104,7 +124,25 @@ class OVR:
         return np.array(predictions)
 
 
-
 ovr = OVR()
-ovr.train()
+ovr.best_lambdas_per_class()
+#ovr.train()
+
+for i in range(10):
+    idx = i
+    y = np.copy(ovr.y_train)
+    y[y != idx] = -1
+    y[y == idx] = 1
+    cv = MyLogisticRegression(X_train=ovr.x_train, y_train=y, lamda=.1, eps=0.001, idx=idx)
+    cv.fit()
+    ovr.cvs.append(cv)
+
+predictions = []
+
+x_test = np.load('kaggle/data/test_features.npy')
+for cv in ovr.cvs:
+    pre = cv.predict_proba(x_test)
+    predictions.append(pre)
+
+
 
