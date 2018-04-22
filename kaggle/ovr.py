@@ -43,7 +43,8 @@ class MultiClassifier(MyClassifier):
 
     def fit(self):
         log_manager = multiprocessing.Process(target=self.__log_manager,
-                                              args=(self.__log_queue, self.__snd))
+                                              args=(self.__log_queue,
+                                                    self.__snd))
         log_manager.start()
 
         workers = []
@@ -107,6 +108,7 @@ class MultiClassifier(MyClassifier):
 
             else:
                 y = np.copy(self._y)
+
                 pos_idx = np.where(y == int(pos))
                 neg_idx = np.where(y == int(neg))
                 y = y**0*-1
@@ -124,7 +126,7 @@ class MultiClassifier(MyClassifier):
                     y_v[v_pos_idx] = 1
 
                     x_idx_v = np.concatenate((v_pos_idx, v_neg_idx), axis=0).flatten()
-                    y_v = y_v[x_idx_v][0]
+                    y_v = y_v[x_idx_v]
 
             if self.lamda is None:
                 lamda = self.__find_best_lamda(self._x[x_idx], y)
@@ -243,6 +245,6 @@ except:
     y_val = np.load('data/val_labels.npy')
 
 ovr = MultiClassifier(x_train, y_train, x_val, y_val, eps=0.001, n_jobs=-1,
-                      method='all_pairs')
+                      lamda=0.01, method='all_pairs')
 ovr.fit()
 
