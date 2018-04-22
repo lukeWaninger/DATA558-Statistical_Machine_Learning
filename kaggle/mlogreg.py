@@ -19,7 +19,7 @@ class MyLogisticRegression(MyClassifier):
         self.lamda = lamda
         self.max_iter = max_iter
 
-        self.__eta = 1. # self.__calc_t_init()i
+        self.__eta = self.__calc_t_init()
         self.__objective_vals = None
         self.__thetas = None
 

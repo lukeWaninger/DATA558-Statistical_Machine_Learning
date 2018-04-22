@@ -291,6 +291,6 @@ except:
     x_test = np.load('data/test_features.npy')
 
 ovr = MultiClassifier(x_train, y_train, x_val, y_val, eps=0.001, n_jobs=-1,
-                      lamda=0.01, method='all_pairs')
+                      lamda=0.001, max_iter=5000, method='both')
 ovr.output_predictions(x_test)
 
