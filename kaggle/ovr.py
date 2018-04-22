@@ -1,13 +1,15 @@
-from kaggle.mlogreg import MyLogisticRegression
-from kaggle.my_classifier import MyClassifier
+import datetime
+from mlogreg import MyLogisticRegression
+from my_classifier import MyClassifier
 import multiprocessing
 from scipy.stats import mode
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
-import pandas as pd
 import os
+import pandas as pd
 import time
 
 
@@ -244,8 +246,11 @@ class MultiClassifier(MyClassifier):
 
             else:
                 print(message)
-                with open(path, 'a+') as f:
-                    f.writelines(message + "\n")
+                try:
+                    with open(path, 'a+') as f:
+                        f.writelines(message + "\n")
+                except Exception as e:
+                    print(e.args)
 
             if running == 0:
                 break
@@ -290,7 +295,20 @@ except:
     y_val = np.load('data/val_labels.npy')
     x_test = np.load('data/test_features.npy')
 
-ovr = MultiClassifier(x_train, y_train, x_val, y_val, eps=0.001, n_jobs=-1,
-                      lamda=0.001, max_iter=5000, method='both')
-ovr.output_predictions(x_test)
+x = np.concatenate((x_train, x_val))
+y = np.concatenate((y_train, y_val))
+
+i, n_splits = 1, 7
+kf = KFold(n_splits=n_splits)
+for train_idx, test_idx in kf.split(x):
+    print("\n\nROUND %s of %s: %s \n\n" % (i, n_splits, datetime.datetime.now()))
+    MultiClassifier(x[train_idx], y[train_idx],
+                    x[test_idx],  y[test_idx],
+                    eps=0.001, n_jobs=-1, lamda=0.001,
+                    max_iter=5000, method='ovr').fit()
+    MultiClassifier(x[train_idx], y[train_idx],
+                    x[test_idx], y[test_idx],
+                    eps=0.001, n_jobs=-1, lamda=0.001,
+                    max_iter=5000, method='all_pairs').fit()
+
 

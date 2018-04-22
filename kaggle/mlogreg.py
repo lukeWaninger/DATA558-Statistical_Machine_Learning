@@ -1,4 +1,4 @@
-from kaggle.my_classifier import MyClassifier
+from my_classifier import MyClassifier
 import numpy as np
 import pickle
 
@@ -40,7 +40,9 @@ class MyLogisticRegression(MyClassifier):
                 raise Exception('init method not defined')
             return b
 
-        self.betas = init(init_method)
+        if self.betas is None:
+            self.betas = init(init_method)
+
         self.__objective_vals = None
 
         if algo == 'grad':
