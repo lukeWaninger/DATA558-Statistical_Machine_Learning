@@ -1,10 +1,12 @@
 from kaggle.mlogreg import MyLogisticRegression
 from kaggle.my_classifier import MyClassifier
 import multiprocessing
+from scipy.stats import mode
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
+import pandas as pd
 import os
 import time
 
@@ -70,26 +72,64 @@ class MultiClassifier(MyClassifier):
 
         log_manager.terminate()
 
+    def output_predictions(self, x):
+        predictions = self.predict(x)
+        pd.DataFrame(predictions).to_csv('kaggle_predictions.csv')
+
     def predict(self, x, beta=None):
         if self.__method == 'ovr':
             predictions = []
-            for i, cv in enumerate(self.cvs):
+            for cv in self.cvs:
                 predictions.append(cv.predict_proba(x))
 
-            predictions = np.array(predictions).reshape(x.shape[0], len(np.unique(self._y)))
-            predictions = [np.argmax(xi) for xi in predictions]
+            predictions = np.array(predictions).T
+            predictions = [np.argmax(p) for p in predictions]
             return predictions
 
-        elif self.__method == 'all_pairs':
+        elif self.__method in ['all_pairs', 'both']:
             predictions = []
-            for i, cv in enumerate(self.cvs):
-                pass
+            for cv in self.cvs:
+                if 'rest' in cv.task:
+                    continue
+
+                pre = cv.predict(x)
+                pos, drop, neg = cv.task.split(' ')
+                predictions.append([int(pos) if pi == 1 else int(neg) for pi in pre])
+            predictions = [mode(pi).mode for pi in np.array(predictions).T]
+
+            # break ties at random unless ovr classifiers have been fitted
+            ties = [(i, pi) for i, pi in enumerate(predictions) if len(pi) > 1]
+            if len(ties) > 0:
+                break_at_random = not self.__load_classifiers(method='ovr')
+                if not break_at_random:
+                    breaker_idx = np.unique(np.concatenate(np.array([pi for i, pi in ties])))
+                    breakers = {}
+                    tasks = [(i, '%s vs rest' % i) for i in breaker_idx]
+
+                    for i, task in tasks:
+                        c = [c for c in self.cvs if c.task == task][0]
+                        breakers[str(i)] = c
+
+                    if len(breakers) == 0:
+                        break_at_random = True
+
+                    else:
+                        for idx, tie in ties:
+                            probas = dict([(c.task.split()[0], c.predict_proba([x[idx]]))
+                                           for c in [breakers[str(i)] for i in tie]])
+                            predictions[idx] = list(probas.keys())[np.argmin(probas)[0]]
+
+                if break_at_random:
+                    for idx, pi in ties: predictions[idx] = np.random.choice(pi)
+
+            predictions = [int(i) for i in predictions]
+            return predictions
 
         else:
             raise Exception('classification method not found')
 
-    def __build_classifiers(self):
-        class_sets = self.__get_training_sets()
+    def __build_classifiers(self, method=None):
+        class_sets = self.__get_training_sets(method)
 
         cvs, x_idx, x_idx_v, y_v = [], [], [], []
         for pos, neg in class_sets:
@@ -148,33 +188,37 @@ class MultiClassifier(MyClassifier):
 
         return gs.best_estimator_.C
 
-    def __get_training_sets(self):
+    def __get_training_sets(self, method=None):
         classes = [str(c) for c in np.unique(self._y)]
+        pairs = []
 
-        if self.__method == 'ovr':
-            return [(c, 'rest') for c in classes]
+        if method is not None:
+            m = method
+        else:
+            m = self.__method
 
-        elif self.__method == 'all_pairs':
-            pairs = []
+        if m in ['ovr', 'both']:
+            [pairs.append((c, 'rest')) for c in classes]
+
+        if m in ['all_pairs', 'both']:
             for i in range(len(classes)):
                 for j in range(i+1, len(classes)):
                     pairs.append((classes[i], classes[j]))
-            return pairs
 
-        else:
-            raise Exception('training method not available')
+        return pairs
 
-    def __load_classifiers(self, path=''):
+    def __load_classifiers(self, path='', method=None):
         try:
-            cvs = []
-            tasks = ['%s vs %s' % (a, b) for a,b in self.__get_training_sets()]
+            if not hasattr(self, 'cvs'):
+                self.cvs = []
+
+            tasks = ['%s vs %s' % (a, b) for a,  b in self.__get_training_sets(method)]
             for task in tasks:
                 cv = MyLogisticRegression(self._x, self._y,
                                           self._x_val, self._y_val,
                                           task=task)
-                cv.load_from_disk(path)
-                cvs.append(cv)
-            self.cvs = cvs
+                cv = cv.load_from_disk(path)
+                self.cvs.append(cv)
             return True
         except Exception as e:
             print(e.args)
@@ -238,13 +282,15 @@ try:
     y_train = np.load('kaggle/data/train_labels.npy')
     x_val = np.load('kaggle/data/val_features.npy')
     y_val = np.load('kaggle/data/val_labels.npy')
+    x_test = np.load('kaggle/data/test_features.npy')
 except:
     x_train = np.load('data/train_features.npy')
     y_train = np.load('data/train_labels.npy')
     x_val = np.load('data/val_features.npy')
     y_val = np.load('data/val_labels.npy')
+    x_test = np.load('data/test_features.npy')
 
 ovr = MultiClassifier(x_train, y_train, x_val, y_val, eps=0.001, n_jobs=-1,
                       lamda=0.01, method='all_pairs')
-ovr.fit()
+ovr.output_predictions(x_test)
 

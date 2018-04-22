@@ -60,7 +60,7 @@ class MyLogisticRegression(MyClassifier):
         with open('%s%s.pk' % (path, self.task), 'rb') as f:
             data = pickle.load(f)
 
-            self.betas    = data['coef']
+            self.betas    = [data['coef']]
             self.eps      = data['eps']
             self.lamda    = data['lamda']
             self.max_iter = data['max_iter']
@@ -69,6 +69,8 @@ class MyLogisticRegression(MyClassifier):
             self._x_val   = data['x_val']
             self._y       = data['y']
             self._y_val   = data['y_val']
+
+        return self
 
     def predict(self, x, betas=None):
         if betas is not None:

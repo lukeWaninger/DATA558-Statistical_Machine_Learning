@@ -39,13 +39,16 @@ class MyClassifier:
     def load_from_disk(self, path):
         pass
 
-    def log_metrics(self, args):
+    def log_metrics(self, args, prediction_func=None):
         row  = '%s,%s,%s,' % (datetime.datetime.now(), os.getpid(), self.task) + \
-               str(self.__compute_metrics(self._x, self._y)) + ',' + \
-               str(self.__compute_metrics(self._x_val, self._y_val)) + ',' + \
+               str(self.__compute_metrics(self._x, self._y, prediction_func)) + ',' + \
+               str(self.__compute_metrics(self._x_val, self._y_val, prediction_func)) + ',' + \
                ','.join([str(a) for a in args])
 
-        self.__log_queue.put(row)
+        if self.__log_queue is not None:
+            self.__log_queue.put(row)
+        else:
+            print(row)
 
     def predict(self, x, beta):
         pass
@@ -59,41 +62,50 @@ class MyClassifier:
     def write_to_disk(self, path):
         pass
 
-    def __compute_metrics(self, x, y):
+    def __compute_metrics(self, x, y, prediction_func=None):
         if x is None and y is None:
             return MetricSet()
 
-        pre = self.predict(x, self.coef_)
-
-        p  = np.sum(y ==  1)
-        n  = np.sum(y == -1)
-        tp = np.sum([yh ==  1 and yh == yt for yh, yt in zip(pre, y)])
-        tn = np.sum([yh == -1 and yh == yt for yh, yt in zip(pre, y)])
-        fp = np.sum([yh ==  1 and yh != yt for yh, yt in zip(pre, y)])
-        fn = np.sum([yh == -1 and yh != yt for yh, yt in zip(pre, y)])
-
-        # accuracy, error, recall, tpr, fpr
-        if p == 0 or n == 0:
-            acc = rec = tpr = fpr = 0
+        if prediction_func is None:
+            pre = self.predict(x, self.coef_)
         else:
-            acc = (tp+tn)/(p+n)
-            rec = tp / p
-            tpr = rec
-            fpr = fp / n
-        err = 1-acc
-        specificity = 1-fpr
+            pre = prediction_func(x, self.coef_)
 
-        # precision
-        if tp == 0 or fp == 0:
-            pre = 0
-        else:
-            pre = tp/(tp+fp)
+        num_classes = len(np.unique(y))
+        if num_classes == 2:
+            p  = np.sum(y ==  1)
+            n  = np.sum(y == -1)
+            tp = np.sum([yh ==  1 and yt ==  1 for yh, yt in zip(pre, y)])
+            tn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
+            fp = np.sum([yh ==  1 and yt == -1 for yh, yt in zip(pre, y)])
+            fn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
 
-        # f1 measure
-        if pre == 0 or rec == 0:
-            f1 = 0
-        else:
-            f1  = 2/(pre**-1 + rec**-1)
+            # accuracy, error, recall, tpr, fpr
+            if p == 0 or n == 0:
+                acc = rec = tpr = fpr = 0
+            else:
+                acc = (tp+tn)/(p+n)
+                rec = tp / p
+                tpr = rec
+                fpr = fp / n
+            err = 1-acc
+            specificity = 1-fpr
 
-        return MetricSet(acc=acc, err=err, pre=pre, rec=rec,
-                         f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
+            # precision
+            if tp == 0 or fp == 0:
+                pre = 0
+            else:
+                pre = tp/(tp+fp)
+
+            # f1 measure
+            if pre == 0 or rec == 0:
+                f1 = 0
+            else:
+                f1  = 2/(pre**-1 + rec**-1)
+
+            return MetricSet(acc=acc, err=err, pre=pre, rec=rec,
+                             f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
+
+        elif num_classes > 2:
+            acc = np.sum([yh == yt for yh, yt in zip(pre, y)])/len(y)
+            return MetricSet(acc=acc, err=1-acc)
