@@ -277,5 +277,5 @@ except:
 
 
 MultiClassifier(x_train, y_train, x_val, y_val,
-                eps=0.031, n_jobs=-1, cv_splits=1, lamda=.01,
-                max_iter=500, method='both').fit()
+                eps=0.031, n_jobs=1, cv_splits=1, lamda=.01,
+                max_iter=500, method='all_pairs').fit()

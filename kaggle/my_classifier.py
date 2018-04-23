@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-import json
 import numpy as np
 import datetime
 import os
+import pickle
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
@@ -63,18 +63,15 @@ class TrainingSplit:
         self.val_metrics   = None
 
     def as_dict(self):
-        tm = self.train_metrics.as_dict() if self.train_metrics is not None else None
-        vm = self.val_metrics.as_dict() if self.val_metrics is not None else None
-
         return {
             'n': self.n,
             'd': self.d,
             'train_idx':  self.train_idx,
             'val_idx':  self.val_idx,
             'lamda':  self.lamda,
-            'betas': list(self.betas),
-            'train_metrics': tm,
-            'val_metrics': vm
+            'betas': self.betas,
+            'train_metrics': self.train_metrics.as_dict(),
+            'val_metrics': self.val_metrics.as_dict()
         }
 
     def from_dict(self, data):
@@ -83,9 +80,9 @@ class TrainingSplit:
         self.train_idx = data['train_idx']
         self.val_idx   = data['val_idx']
         self.lamda = data['lamda']
-        self.betas = np.array(data['betas'])
+        self.betas = data['betas']
         self.train_metrics = MetricSet().from_dict(data['train_metrics'])
-        self.val_metrics = MetricSet().from_dict(data['val_metrics'])
+        self.val_metrics   = MetricSet().from_dict(data['val_metrics'])
 
         return self
 
@@ -156,29 +153,28 @@ class MyClassifier(ABC):
 
     def load_from_disk(self, path):
         try:
-            with open('%s%s.json' % (path, self.task), 'r') as f:
-                data = json.loads(f.readlines())
+            with open('%s%s.pk' % (path, self.task), 'rb') as f:
+                data = pickle.load(f)
 
-            self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
-            self.__x = np.array(data['x'])
-            self.__y = np.array(data['y'])
+                self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
+                self.__x = data['x']
+                self.__y = data['y']
 
-            return self
+                return self
         except Exception as e:
-            print('could not load %s from disk: %s' % (self.task, ', '.join([str(a) for a in e.args])))
-            return None
+            print('could not write model to disk: %s' % ', '.join([str(a) for a in e.args]))
 
     def log_metrics(self, args, prediction_func=None):
         train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
-        val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+        val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
 
         self.__cv_splits[self.__current_split].train_metrics = train_metrics
-        self.__cv_splits[self.__current_split].val_metrics   = val_metrics
+        self.__cv_splits[self.__current_split].val_metrics = val_metrics
 
-        row  = '%s,p%s,%s,%s,' % \
-               (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
-               str(train_metrics) + ',' + str(val_metrics) + ',' + \
-               ','.join([str(a) for a in args])
+        row = '%s,p%s,%s,%s,' % \
+              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
+              str(train_metrics) + ',' + str(val_metrics) + ',' + \
+              ','.join([str(a) for a in args])
 
         if self.__log_queue is not None:
             self.__log_queue.put(row)
@@ -205,18 +201,18 @@ class MyClassifier(ABC):
         return self
 
     def write_to_disk(self, path):
-        dict_rep = {
-            'task':   self.task,
-            'splits': [split.as_dict() for split in self.__cv_splits],
-            'x':      list(self._x),
-            'y':      list(self._y)
-        }
-
         try:
-            with open('%s%s.json' % (path, self.task), 'w+') as f:
-                f.writelines(json.dumps(dict_rep, sort_keys=True, indent=4))
+            dict_rep = {
+                'task':   self.task,
+                'splits': [split.as_dict() for split in self.__cv_splits],
+                'x':      self._x,
+                'y':      self._y
+            }
+
+            with open('%s%s.pk' % (path, self.task), 'wb') as f:
+                pickle.dump(dict_rep, f, pickle.HIGHEST_PROTOCOL)
         except Exception as e:
-            print('could not write model to disk: %s' % ', '.join([str(a) for a in e.args]))
+            print('could not write %s to disk: %s' % (self.task, [str(a) for a in e.args]))
 
     # private methods
     def __compute_metrics(self, x, y, prediction_func=None):
