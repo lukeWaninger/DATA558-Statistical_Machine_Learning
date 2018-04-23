@@ -189,6 +189,14 @@ class MyClassifier(ABC):
     def set_log_queue(self, queue):
         self.__log_queue = queue
 
+    def set_split(self, split_number):
+        if not 0 < split_number < len(self.__cv_splits):
+            print('split not calculated')
+        else:
+            self.__current_split = split_number
+
+        return self
+
     def write_to_disk(self, path):
         dict_rep = {
             'task':   self.task,
