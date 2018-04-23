@@ -104,11 +104,13 @@ class MyClassifier(ABC):
         if self.__current_split == self.__finished:
             return False
 
-        splits, idx = self.__cv_splits, self.__current_split
-        splits[idx].train_metrics = self.__compute_metrics(self._x, self._y)
-        splits[idx].val_metrics = self.__compute_metrics(self._x_val, self._y_val)
+        if self.__current_split != -1:
+            splits, idx = self.__cv_splits, self.__current_split
 
-        self.write_to_disk('')
+            splits[idx].train_metrics = self.__compute_metrics(self._x, self._y)
+            splits[idx].val_metrics = self.__compute_metrics(self._x_val, self._y_val)
+
+            self.write_to_disk('')
 
         self.__current_split += 1
         return True

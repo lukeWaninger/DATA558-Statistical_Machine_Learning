@@ -42,6 +42,7 @@ class MyLogisticRegression(MyClassifier):
 
             if len(self.__betas) == 0:
                 self.__betas = init(init_method)
+                self._set_betas(self.__betas[0])
 
             self.__objective_vals = None
 
