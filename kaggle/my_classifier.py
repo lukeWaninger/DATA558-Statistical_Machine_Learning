@@ -81,7 +81,7 @@ class MyClassifier:
         tp = np.sum([yh ==  1 and yt ==  1 for yh, yt in zip(pre, y)])
         tn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
         fp = np.sum([yh ==  1 and yt == -1 for yh, yt in zip(pre, y)])
-        fn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
+        fn = np.sum([yh == -1 and yt ==  1 for yh, yt in zip(pre, y)])
 
         # accuracy, error, recall, tpr, fpr
         if p == 0 or n == 0:
@@ -96,16 +96,16 @@ class MyClassifier:
 
         # precision
         if tp == 0 or fp == 0:
-            pre = 0
+            prec = 0
         else:
-            pre = tp/(tp+fp)
+            prec = tp/(tp+fp)
 
         # f1 measure
-        if pre == 0 or rec == 0:
+        if prec == 0 or rec == 0:
             f1 = 0
         else:
-            f1  = 2/(pre**-1 + rec**-1)
+            f1  = 2/(prec**-1 + rec**-1)
 
-        return MetricSet(acc=acc, err=err, pre=pre, rec=rec,
+        return MetricSet(acc=acc, err=err, pre=prec, rec=rec,
                          f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
 

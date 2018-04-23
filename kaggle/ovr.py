@@ -132,13 +132,15 @@ class MultiClassifier(MyClassifier):
 
     def __build_classifiers(self, method=None):
         class_sets = self.__get_training_sets(method)
+        y = np.copy(self._y)
+        x = np.copy(self._x)
 
-        cvs, x_idx, x_idx_v, y_v = [], [], [], []
+        cvs, x_idx, x_idx_v, y_v, x_v = [], [], [], [], []
         for pos, neg in class_sets:
             # set class labels
             if neg == 'rest':
-                pos_idx = np.where(self._y == int(pos))
-                y = self._y**0*-1
+                pos_idx = np.where(y == int(pos))
+                y = y**0*-1
                 y[pos_idx] = 1
                 x_idx = [i for i in range(len(y))]
 
@@ -146,11 +148,11 @@ class MultiClassifier(MyClassifier):
                     v_pos_idx = np.where(self._y_val == int(pos))
                     y_v = self._y_val**0*-1
                     y_v[v_pos_idx] = 1
+
                     x_idx_v = [i for i in range(len(y_v))]
+                    x_v = np.copy(self._x_val[x_idx_v])
 
             else:
-                y = np.copy(self._y)
-
                 pos_idx = np.where(y == int(pos))
                 neg_idx = np.where(y == int(neg))
                 y = y**0*-1
@@ -158,9 +160,12 @@ class MultiClassifier(MyClassifier):
 
                 x_idx = np.concatenate((pos_idx[0], neg_idx[0]), axis=0)
                 y = y[x_idx]
+                x = y[x_idx]
 
                 if self._x_val is not None and self._y_val is not None:
                     y_v = np.copy(self._y_val)
+                    x_v = np.copy(self._x_val)
+
                     v_pos_idx = np.where(y_v == int(pos))
                     v_neg_idx = np.where(y_v == int(neg))
 
@@ -169,14 +174,15 @@ class MultiClassifier(MyClassifier):
 
                     x_idx_v = np.concatenate((v_pos_idx[0], v_neg_idx[0]), axis=0).flatten()
                     y_v = y_v[x_idx_v]
+                    x_v = x_v[x_idx_v]
 
             if self.lamda is None:
-                lamda = self.__find_best_lamda(self._x[x_idx], y)
+                lamda = self.__find_best_lamda(x, y)
             else:
                 lamda = self.lamda
 
-            classifier = MyLogisticRegression(x_train=self._x[x_idx], y_train=y,
-                                              x_val=self._x_val[x_idx_v], y_val=y_v,
+            classifier = MyLogisticRegression(x_train=x, y_train=y,
+                                              x_val=x_v, y_val=y_v,
                                               lamda=lamda, max_iter=self.max_iter,
                                               eps=self.eps, task='%s vs %s' % (pos, neg))
             cvs.append(classifier)
@@ -299,16 +305,16 @@ x = np.concatenate((x_train, x_val))
 y = np.concatenate((y_train, y_val))
 
 i, n_splits = 1, 7
-kf = KFold(n_splits=n_splits)
+kf = KFold(n_splits=n_splits, shuffle=True)
 for train_idx, test_idx in kf.split(x):
     print("\n\nROUND %s of %s: %s \n\n" % (i, n_splits, datetime.datetime.now()))
-    # MultiClassifier(x[train_idx], y[train_idx],
-    #                 x[test_idx],  y[test_idx],
-    #                 eps=0.001, n_jobs=-1, lamda=0.001,
-    #                 max_iter=5000, method='ovr').fit()
+    MultiClassifier(x[train_idx], y[train_idx],
+                    x[test_idx],  y[test_idx],
+                    eps=0.001, n_jobs=-1, lamda=0.001,
+                    max_iter=1000, method='ovr').fit()
     MultiClassifier(x[train_idx], y[train_idx],
                     x[test_idx], y[test_idx],
                     eps=0.001, n_jobs=-1, lamda=0.001,
-                    max_iter=5000, method='all_pairs').fit()
+                    max_iter=1000, method='all_pairs').fit()
 
 
