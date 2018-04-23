@@ -4,6 +4,7 @@ import datetime
 import os
 import pickle
 from sklearn.model_selection import KFold
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 class MetricSet:
@@ -48,11 +49,13 @@ class TrainingSplit:
 
 class MyClassifier(ABC):
     def __init__(self, x_train, y_train, x_val=None, y_val=None,
-                 lamda=None, cv_splits=1, log_queue=None, task=None):
+                 lamda=None, cv_splits=1, log_queue=None, task=None,
+                 scale_method=None):
         self.task = task
 
         self.__x, self.__y, self.__cv_splits = \
-            self.__generate_splits(x_train, y_train, x_val, y_val, cv_splits, lamda)
+            self.__generate_splits(x_train, y_train, x_val, y_val,
+                                   cv_splits, lamda, scale_method)
 
         self.__current_split = -1
         self.__finished = cv_splits-1
@@ -98,9 +101,14 @@ class MyClassifier(ABC):
         self.__cv_splits[self.__current_split].betas = betas
 
     def fit(self):
-        self.__current_split += 1
         if self.__current_split == self.__finished:
             return False
+
+        splits, idx = self.__cv_splits, self.__current_split
+        splits[idx].train_metrics = self.__compute_metrics(self._x, self._y)
+        splits[idx].val_metrics = self.__compute_metrics(self._x_val, self._y_val)
+
+        self.__current_split += 1
         return True
 
     def load_from_disk(self, path):
@@ -114,7 +122,7 @@ class MyClassifier(ABC):
         return self
 
     def log_metrics(self, args, prediction_func=None):
-        row  = '%s,%s,%s,' % (datetime.datetime.now(), os.getpid(), self.task) + \
+        row  = '%s,p%s,%s,s%s,' % (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
                str(self.__compute_metrics(self._x, self._y, prediction_func)) + ',' + \
                str(self.__compute_metrics(self._x_val, self._y_val, prediction_func)) + ',' + \
                ','.join([str(a) for a in args])
@@ -192,24 +200,43 @@ class MyClassifier(ABC):
         return MetricSet(acc=acc, err=err, pre=prec, rec=rec,
                          f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
 
-    @staticmethod
-    def __generate_splits(x_train, y_train, x_val, y_val, cv_splits, lamda):
+    def __generate_splits(self, x_train, y_train, x_val, y_val,
+                          cv_splits, lamda, scale_method):
         x = np.concatenate((x_train, x_val))
+        x = self.__scale_data(x, scale_method)
+
         y = np.concatenate((y_train, y_val))
-
         splits = []
-        kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
 
-        for train_idx, val_idx in kf.split(x, y):
+        if cv_splits > 1:
+            kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
+
+            for train_idx, val_idx in kf.split(x, y):
+                splits.append(
+                    TrainingSplit(
+                        n=len(train_idx),
+                        d=x_train.shape[1],
+                        train_idx=train_idx,
+                        val_idx=val_idx,
+                        lamda=lamda
+                    ))
+        else:
             splits.append(
                 TrainingSplit(
-                    n=len(train_idx),
+                    n=x_train.shape[0],
                     d=x_train.shape[1],
-                    train_idx=train_idx,
-                    val_idx=val_idx,
-                    lamda=lamda
-                ))
+                    train_idx=[i for i in range(len(y_train))],
+                    val_idx=[i for i in range(len(y_train), len(y_train)+len(y_val))]
+                )
+            )
 
         return x, y, splits
 
-
+    @staticmethod
+    def __scale_data(data, method):
+        if method == 'standardize':
+            return StandardScaler().fit_transform(data)
+        elif method == 'minmax':
+            return MinMaxScaler().fit_transform(data)
+        else:
+            return data

@@ -25,8 +25,6 @@ class MyLogisticRegression(MyClassifier):
 
     # public methods
     def fit(self, algo='grad', init_method='zeros'):
-        super().fit()
-
         def init(method):
             if method == 'ones':
                 b = [np.ones(self._d)]
@@ -38,22 +36,25 @@ class MyLogisticRegression(MyClassifier):
                 raise Exception('init method not defined')
             return b
 
-        if len(self.__betas) == 0:
-            self.__betas = init(init_method)
+        while super().fit():
+            self.__betas = self.coef_
 
-        self.__objective_vals = None
+            if len(self.__betas) == 0:
+                self.__betas = init(init_method)
 
-        if algo == 'grad':
-            self.__graddescent()
-        elif algo == 'fgrad':
-            self.__betas.append(self.__betas[-1])
-            self.__thetas = init(init_method)[0]
-            self.__fastgradalgo()
-            self.__betas = self.__betas[1:]
-        else:
-            raise Exception("algorithm <%s> is not available" % algo)
+            self.__objective_vals = None
 
-        self._set_betas(self.__betas[-1])
+            if algo == 'grad':
+                self.__graddescent()
+            elif algo == 'fgrad':
+                self.__betas.append(self.__betas[-1])
+                self.__thetas = init(init_method)[0]
+                self.__fastgradalgo()
+                self.__betas = self.__betas[1:]
+            else:
+                raise Exception("algorithm <%s> is not available" % algo)
+
+            self._set_betas(self.__betas[-1])
         return self
 
     def predict(self, x, betas=None):

@@ -4,7 +4,6 @@ import multiprocessing
 from scipy.stats import mode
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import numpy as np
 import os
 import pandas as pd
@@ -18,11 +17,14 @@ class MultiClassifier(MyClassifier):
                  scale_method='minmax', n_jobs=-1):
 
         super().__init__(x_train, y_train, x_val, y_val,
-                         task='%s multi_class' % method)
-        self.eps = eps
-        self.init_method = init_method
-        self.lamda = lamda
-        self.max_iter = max_iter
+                         task='%s multi_class' % method,
+                         scale_method=scale_method)
+
+        self.__cv_splits = cv_splits
+        self.__eps = eps
+        self.__init_method = init_method
+        self.__lamda = lamda
+        self.__max_iter = max_iter
 
         cpu_count = multiprocessing.cpu_count()
         if n_jobs == -1 or n_jobs >= cpu_count:
@@ -33,13 +35,6 @@ class MultiClassifier(MyClassifier):
         self.__manager = multiprocessing.Manager()
         self.__log_queue = self.__manager.Queue()
         self.__snd, self.__rcv = multiprocessing.Pipe()
-
-        self.__scalar = None
-        self._x = self.__scale_data(x_train, scale_method)
-        self._y = y_train
-
-        if x_val is not None:
-            self._x_val = self.__scale_data(x_val, scale_method)
 
         self.__method = method
 
@@ -131,61 +126,61 @@ class MultiClassifier(MyClassifier):
         else:
             raise Exception('classification method not found')
 
+    def predict_proba(self, x, beta):
+        pass
+
     def __build_classifiers(self, method=None):
         class_sets = self.__get_training_sets(method)
-        y = np.copy(self._y)
-        x = np.copy(self._x)
 
         cvs, x_idx, x_idx_v, y_v, x_v = [], [], [], [], []
         for pos, neg in class_sets:
+            y = np.copy(self._y)
+            x = np.copy(self._x)
+            y_v = np.copy(self._y_val)
+            x_v = np.copy(self._x_val)
+
             # set class labels
             if neg == 'rest':
-                pos_idx = np.where(y == int(pos))
+                pos_idx = np.where(y == int(pos))[0]
                 y = y**0*-1
                 y[pos_idx] = 1
-                x_idx = [i for i in range(len(y))]
 
-                if self._x_val is not None and self._y_val is not None:
-                    v_pos_idx = np.where(self._y_val == int(pos))
-                    y_v = self._y_val**0*-1
+                if len(x_v) > 0 and len(y_v) > 0:
+                    v_pos_idx = np.where(y_v == int(pos))[0]
+                    y_v = y_v**0*-1
                     y_v[v_pos_idx] = 1
 
-                    x_idx_v = [i for i in range(len(y_v))]
-                    x_v = np.copy(self._x_val[x_idx_v])
-
             else:
-                pos_idx = np.where(y == int(pos))
-                neg_idx = np.where(y == int(neg))
+                pos_idx = np.where(y == int(pos))[0]
+                neg_idx = np.where(y == int(neg))[0]
                 y = y**0*-1
                 y[pos_idx] = 1
 
-                x_idx = np.concatenate((pos_idx[0], neg_idx[0]), axis=0)
+                x_idx = np.concatenate((pos_idx, neg_idx))
                 y = y[x_idx]
-                x = y[x_idx]
+                x = x[x_idx]
 
-                if self._x_val is not None and self._y_val is not None:
-                    y_v = np.copy(self._y_val)
-                    x_v = np.copy(self._x_val)
-
-                    v_pos_idx = np.where(y_v == int(pos))
-                    v_neg_idx = np.where(y_v == int(neg))
+                if len(x_v) > 0 and len(y_v) > 0:
+                    v_pos_idx = np.where(y_v == int(pos))[0]
+                    v_neg_idx = np.where(y_v == int(neg))[0]
 
                     y_v = y_v**0*-1
                     y_v[v_pos_idx] = 1
 
-                    x_idx_v = np.concatenate((v_pos_idx[0], v_neg_idx[0]), axis=0).flatten()
+                    x_idx_v = np.concatenate((v_pos_idx, v_neg_idx))
                     y_v = y_v[x_idx_v]
                     x_v = x_v[x_idx_v]
 
-            if self.lamda is None:
+            if self.__lamda is None:
                 lamda = self.__find_best_lamda(x, y)
             else:
-                lamda = self.lamda
+                lamda = self.__lamda
 
-            classifier = MyLogisticRegression(x_train=x, y_train=y,
-                                              x_val=x_v, y_val=y_v,
-                                              lamda=lamda, max_iter=self.max_iter,
-                                              eps=self.eps, task='%s vs %s' % (pos, neg))
+            task = '%s vs %s' % (pos, neg)
+            classifier = MyLogisticRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
+                                              lamda=lamda, max_iter=self.__max_iter,
+                                              cv_splits=self.__cv_splits,
+                                              eps=self.__eps, task=task)
             cvs.append(classifier)
         return cvs
 
@@ -237,7 +232,7 @@ class MultiClassifier(MyClassifier):
         start = time.time()
 
         path = '/mnt/hgfs/descent_logs/descent_log_%s_%s.csv' % (self.task, str(int(time.time())))
-        header = 'timestamp,pid,task,test_acc,test_err,test_precision,test_recall,test_f1,' \
+        header = 'timestamp,pid,task,split,test_acc,test_err,test_precision,test_recall,test_f1,' \
                  'test_fpr,test_tpr,test_specificity,val_acc,val_err,val_precision,' \
                  'val_recall,val_f1,val_fpr,val_tpr,val_specificity\n'
 
@@ -266,20 +261,11 @@ class MultiClassifier(MyClassifier):
         print('training completed in %s\n' % time_delta)
         conn.send(True)
 
-    def __scale_data(self, data, method):
-        if self.__scalar is None:
-            if method == 'standardize':
-                self.__scalar = StandardScaler().fit(data)
-            else:
-                self.__scalar = MinMaxScaler().fit(data)
-
-        return self.__scalar.transform(data)
-
     def __train_one(self, cv, conn):
         start = time.time()
 
         print("starting %s on pid %s" % (cv.task, os.getpid()))
-        cv = cv.fit(algo='fgrad', init_method=self.init_method)
+        cv = cv.fit(algo='fgrad', init_method=self.__init_method)
         cv.write_to_disk('')
 
         print('%s finished %s in %s seconds' %
@@ -304,7 +290,7 @@ except:
 
 
 MultiClassifier(x_train, y_train, x_val, y_val,
-                eps=0.001, n_jobs=-1,
+                eps=0.001, n_jobs=-1, cv_splits=7,
                 max_iter=500, method='both').fit()
 
 
