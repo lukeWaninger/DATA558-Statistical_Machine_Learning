@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
+import json
 import numpy as np
 import datetime
 import os
-import pickle
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
@@ -158,12 +158,15 @@ class MyClassifier(ABC):
         return True
 
     def load_from_disk(self, path):
-        with open('%s%s.pk' % (path, self.task), 'rb') as f:
-            data = pickle.load(f)
+        try:
+            with open('%s%s.json' % (path, self.task), 'r') as f:
+                data = json.loads(f.readlines())
 
             self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
             self.__x = data['x']
             self.__y = data['y']
+        except Exception as e:
+            print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
         return self
 
@@ -204,9 +207,11 @@ class MyClassifier(ABC):
             'x':      self._x,
             'y':      self._y
         }
-
-        with open('%s%s.pk' % (path, self.task), 'wb') as f:
-            pickle.dump(dict_rep, f, pickle.HIGHEST_PROTOCOL)
+        try:
+            with open('%s%s.json' % (path, self.task), 'w+') as f:
+                f.writelines(json.dumps(dict_rep, sort_keys=True, indent=4))
+        except Exception as e:
+            print('could not write model to disk: %s' % ', '.join([str(a) for a in e.args]))
 
     # private methods
     def __compute_metrics(self, x, y, prediction_func=None):
