@@ -156,7 +156,7 @@ class MultiClassifier(MyClassifier):
                 y = y**0*-1
                 y[pos_idx] = 1
 
-                x_idx = np.concatenate((pos_idx, neg_idx), axis=0).flatten()
+                x_idx = np.concatenate((pos_idx[0], neg_idx[0]), axis=0)
                 y = y[x_idx]
 
                 if self._x_val is not None and self._y_val is not None:
@@ -167,7 +167,7 @@ class MultiClassifier(MyClassifier):
                     y_v = y_v**0*-1
                     y_v[v_pos_idx] = 1
 
-                    x_idx_v = np.concatenate((v_pos_idx, v_neg_idx), axis=0).flatten()
+                    x_idx_v = np.concatenate((v_pos_idx[0], v_neg_idx[0]), axis=0).flatten()
                     y_v = y_v[x_idx_v]
 
             if self.lamda is None:
@@ -302,10 +302,10 @@ i, n_splits = 1, 7
 kf = KFold(n_splits=n_splits)
 for train_idx, test_idx in kf.split(x):
     print("\n\nROUND %s of %s: %s \n\n" % (i, n_splits, datetime.datetime.now()))
-    MultiClassifier(x[train_idx], y[train_idx],
-                    x[test_idx],  y[test_idx],
-                    eps=0.001, n_jobs=-1, lamda=0.001,
-                    max_iter=5000, method='ovr').fit()
+    # MultiClassifier(x[train_idx], y[train_idx],
+    #                 x[test_idx],  y[test_idx],
+    #                 eps=0.001, n_jobs=-1, lamda=0.001,
+    #                 max_iter=5000, method='ovr').fit()
     MultiClassifier(x[train_idx], y[train_idx],
                     x[test_idx], y[test_idx],
                     eps=0.001, n_jobs=-1, lamda=0.001,

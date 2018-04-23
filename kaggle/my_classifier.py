@@ -4,8 +4,8 @@ import os
 
 
 class MetricSet:
-    def __init__(self, acc=None, err=None, pre=None,
-                 rec=None, f1=None, fpr=None, tpr=None, specificity=None):
+    def __init__(self, acc=0., err=1., pre=0., rec=0.,
+                 f1=0., fpr=1., tpr=0., specificity=0.):
         self.accuracy    = acc
         self.error       = err
         self.precision   = pre
@@ -72,40 +72,40 @@ class MyClassifier:
             pre = prediction_func(x, self.coef_)
 
         num_classes = len(np.unique(y))
-        if num_classes == 2:
-            p  = np.sum(y ==  1)
-            n  = np.sum(y == -1)
-            tp = np.sum([yh ==  1 and yt ==  1 for yh, yt in zip(pre, y)])
-            tn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
-            fp = np.sum([yh ==  1 and yt == -1 for yh, yt in zip(pre, y)])
-            fn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
+        if num_classes > 2:
+            acc = (np.sum([yh == yt for yh, yt in zip(pre, y)]) / len(y))[0]
+            return MetricSet(acc=acc, err=1 - acc)
 
-            # accuracy, error, recall, tpr, fpr
-            if p == 0 or n == 0:
-                acc = rec = tpr = fpr = 0
-            else:
-                acc = (tp+tn)/(p+n)
-                rec = tp / p
-                tpr = rec
-                fpr = fp / n
-            err = 1-acc
-            specificity = 1-fpr
+        p  = np.sum(y ==  1)
+        n  = np.sum(y == -1)
+        tp = np.sum([yh ==  1 and yt ==  1 for yh, yt in zip(pre, y)])
+        tn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
+        fp = np.sum([yh ==  1 and yt == -1 for yh, yt in zip(pre, y)])
+        fn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
 
-            # precision
-            if tp == 0 or fp == 0:
-                pre = 0
-            else:
-                pre = tp/(tp+fp)
+        # accuracy, error, recall, tpr, fpr
+        if p == 0 or n == 0:
+            acc = rec = tpr = fpr = 0
+        else:
+            acc = (tp+tn)/(p+n)
+            rec = tp / p
+            tpr = rec
+            fpr = fp / n
+        err = 1-acc
+        specificity = 1-fpr
 
-            # f1 measure
-            if pre == 0 or rec == 0:
-                f1 = 0
-            else:
-                f1  = 2/(pre**-1 + rec**-1)
+        # precision
+        if tp == 0 or fp == 0:
+            pre = 0
+        else:
+            pre = tp/(tp+fp)
 
-            return MetricSet(acc=acc, err=err, pre=pre, rec=rec,
-                             f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
+        # f1 measure
+        if pre == 0 or rec == 0:
+            f1 = 0
+        else:
+            f1  = 2/(pre**-1 + rec**-1)
 
-        elif num_classes > 2:
-            acc = np.sum([yh == yt for yh, yt in zip(pre, y)])/len(y)
-            return MetricSet(acc=acc, err=1-acc)
+        return MetricSet(acc=acc, err=err, pre=pre, rec=rec,
+                         f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
+
