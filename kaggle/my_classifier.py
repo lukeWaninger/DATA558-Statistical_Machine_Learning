@@ -160,8 +160,8 @@ class MyClassifier(ABC):
                 data = json.loads(f.readlines())
 
             self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
-            self.__x = data['x']
-            self.__y = data['y']
+            self.__x = np.array(data['x'])
+            self.__y = np.array(data['y'])
 
             return self
         except Exception as e:
@@ -208,8 +208,8 @@ class MyClassifier(ABC):
         dict_rep = {
             'task':   self.task,
             'splits': [split.as_dict() for split in self.__cv_splits],
-            'x':      self._x,
-            'y':      self._y
+            'x':      list(self._x),
+            'y':      list(self._y)
         }
 
         try:
