@@ -108,6 +108,8 @@ class MyClassifier(ABC):
         splits[idx].train_metrics = self.__compute_metrics(self._x, self._y)
         splits[idx].val_metrics = self.__compute_metrics(self._x_val, self._y_val)
 
+        self.write_to_disk('')
+
         self.__current_split += 1
         return True
 

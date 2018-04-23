@@ -12,6 +12,7 @@ class MyLogisticRegression(MyClassifier):
     def __init__(self, x_train, y_train, x_val=None, y_val=None,
                  lamda=.01, max_iter=500, eps=0.001, cv_splits=1,
                  log_queue=None, task=None):
+
         super().__init__(x_train, y_train, x_val, y_val, lamda,
                          cv_splits, log_queue, task)
 
