@@ -63,15 +63,18 @@ class TrainingSplit:
         self.val_metrics   = None
 
     def as_dict(self):
+        tm = self.train_metrics.as_dict() if self.train_metrics is not None else None
+        vm = self.val_metrics.as_dict() if self.val_metrics is not None else None
+
         return {
             'n': self.n,
             'd': self.d,
             'train_idx':  self.train_idx,
             'val_idx':  self.val_idx,
             'lamda':  self.lamda,
-            'betas': self.betas,
-            'train_metrics': str(self.train_metrics),
-            'val_metrics': str(self.val_metrics)
+            'betas': list(self.betas),
+            'train_metrics': tm,
+            'val_metrics': vm
         }
 
     def from_dict(self, data):
@@ -80,8 +83,9 @@ class TrainingSplit:
         self.train_idx = data['train_idx']
         self.val_idx   = data['val_idx']
         self.lamda = data['lamda']
-        self.betas = data['betas']
+        self.betas = np.array(data['betas'])
         self.train_metrics = MetricSet().from_dict(data['train_metrics'])
+        self.val_metrics = MetricSet().from_dict(data['val_metrics'])
 
         return self
 
@@ -144,15 +148,8 @@ class MyClassifier(ABC):
     # public methods
     def fit(self):
         if self.__current_split == self.__finished:
-            return False
-
-        if self.__current_split != -1:
-            splits, idx = self.__cv_splits, self.__current_split
-
-            splits[idx].train_metrics = self.__compute_metrics(self._x, self._y)
-            splits[idx].val_metrics = self.__compute_metrics(self._x_val, self._y_val)
-
             self.write_to_disk('')
+            return False
 
         self.__current_split += 1
         return True
@@ -172,9 +169,15 @@ class MyClassifier(ABC):
             return None
 
     def log_metrics(self, args, prediction_func=None):
-        row  = '%s,p%s,%s,%s,' % (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
-               str(self.__compute_metrics(self._x, self._y, prediction_func)) + ',' + \
-               str(self.__compute_metrics(self._x_val, self._y_val, prediction_func)) + ',' + \
+        train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
+        val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+
+        self.__cv_splits[self.__current_split].train_metrics = train_metrics
+        self.__cv_splits[self.__current_split].val_metrics   = val_metrics
+
+        row  = '%s,p%s,%s,%s,' % \
+               (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
+               str(train_metrics) + ',' + str(val_metrics) + ',' + \
                ','.join([str(a) for a in args])
 
         if self.__log_queue is not None:
@@ -208,6 +211,7 @@ class MyClassifier(ABC):
             'x':      self._x,
             'y':      self._y
         }
+
         try:
             with open('%s%s.json' % (path, self.task), 'w+') as f:
                 f.writelines(json.dumps(dict_rep, sort_keys=True, indent=4))

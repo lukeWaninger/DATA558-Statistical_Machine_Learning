@@ -254,7 +254,6 @@ class MultiClassifier(MyClassifier):
 
         print("starting %s on pid %s" % (cv.task, os.getpid()))
         cv = cv.fit(algo='fgrad', init_method=self.__init_method)
-        cv.write_to_disk('')
 
         print('%s finished %s in %s seconds' %
               (os.getpid(), cv.task, time.time() - start))
