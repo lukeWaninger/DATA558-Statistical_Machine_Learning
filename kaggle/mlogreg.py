@@ -62,6 +62,8 @@ class MyLogisticRegression(MyClassifier):
     def predict(self, x, betas=None):
         if betas is not None:
             b = betas
+        elif len(self.__betas) > 0:
+            b = self.__betas[-1]
         else:
             b = self.coef_
 

@@ -2,8 +2,6 @@ from mlogreg import MyLogisticRegression
 from my_classifier import MyClassifier
 import multiprocessing
 from scipy.stats import mode
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
 import numpy as np
 import os
 import pandas as pd
@@ -171,26 +169,13 @@ class MultiClassifier(MyClassifier):
                     y_v = y_v[x_idx_v]
                     x_v = x_v[x_idx_v]
 
-            if self.__lamda is None:
-                lamda = self.__find_best_lamda(x, y)
-            else:
-                lamda = self.__lamda
-
             task = '%s vs %s' % (pos, neg)
             classifier = MyLogisticRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                              lamda=lamda, max_iter=self.__max_iter,
+                                              lamda=self.__lamda, max_iter=self.__max_iter,
                                               cv_splits=self.__cv_splits,
                                               eps=self.__eps, task=task)
             cvs.append(classifier)
         return cvs
-
-    def __find_best_lamda(self, x, y):
-        cv = LogisticRegression(fit_intercept=False, max_iter=5000)
-
-        parameters = {'C': np.linspace(.001, 2.0, 20)}
-        gs = GridSearchCV(cv, parameters, scoring='neg_log_loss', n_jobs=self.__available_procs).fit(x, y)
-
-        return gs.best_estimator_.C
 
     def __get_training_sets(self, method=None):
         classes = [str(c) for c in np.unique(self._y)]
@@ -290,9 +275,8 @@ except:
 
 
 MultiClassifier(x_train, y_train, x_val, y_val,
-                eps=0.001, n_jobs=-1, cv_splits=7,
-                lamda=0.01,  max_iter=500,
-                method='both').fit()
+                eps=0.001, n_jobs=-1, cv_splits=3,
+                max_iter=500, method='both').fit()
 
 
 

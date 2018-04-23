@@ -3,7 +3,9 @@ import numpy as np
 import datetime
 import os
 import pickle
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
+from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
@@ -24,9 +26,33 @@ class MetricSet:
                (self.accuracy, self.error, self.precision, self.recall,
                 self.f1_measure, self.fpr, self.tpr, self.specificity)
 
+    def as_dict(self):
+        return {
+            'accuracy':    self.accuracy,
+            'error':       self.error,
+            'precision':   self.precision,
+            'recall':      self.recall,
+            'f1_measure':  self.f1_measure,
+            'fpr':         self.fpr,
+            'tpr':         self.tpr,
+            'specificity': self.specificity
+        }
+
+    def from_dict(self, data):
+        self.accuracy    = data['accuracy']
+        self.error       = data['error']
+        self.precision   = data['precision']
+        self.recall      = data['recall']
+        self.f1_measure  = data['f1_measure']
+        self.fpr         = data['fpr']
+        self.tpr         = data['tpr']
+        self.specificity = data['specificity']
+
+        return self
+
 
 class TrainingSplit:
-    def __init__(self, n, d, train_idx, val_idx, lamda=0.1, betas=None):
+    def __init__(self, n=0, d=0, train_idx=None, val_idx=None, lamda=0.1, betas=None):
         self.n = n
         self.d = d
         self.train_idx = train_idx
@@ -38,13 +64,26 @@ class TrainingSplit:
 
     def as_dict(self):
         return {
+            'n': self.n,
+            'd': self.d,
             'train_idx':  self.train_idx,
             'val_idx':  self.val_idx,
             'lamda':  self.lamda,
-            'betas':  self.betas,
+            'betas': self.betas,
             'train_metrics': str(self.train_metrics),
-            'val_metrics':   str(self.val_metrics)
+            'val_metrics': str(self.val_metrics)
         }
+
+    def from_dict(self, data):
+        self.n = data['n']
+        self.d = data['d']
+        self.train_idx = data['train_idx']
+        self.val_idx   = data['val_idx']
+        self.lamda = data['lamda']
+        self.betas = data['betas']
+        self.train_metrics = MetricSet().from_dict(data['train_metrics'])
+
+        return self
 
 
 class MyClassifier(ABC):
@@ -119,14 +158,14 @@ class MyClassifier(ABC):
         with open('%s%s.pk' % (path, self.task), 'rb') as f:
             data = pickle.load(f)
 
-            self.__cv_splits = data['splits']
+            self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
             self.__x = data['x']
             self.__y = data['y']
 
         return self
 
     def log_metrics(self, args, prediction_func=None):
-        row  = '%s,p%s,%s,s%s,' % (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
+        row  = '%s,p%s,%s,%s,' % (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
                str(self.__compute_metrics(self._x, self._y, prediction_func)) + ',' + \
                str(self.__compute_metrics(self._x_val, self._y_val, prediction_func)) + ',' + \
                ','.join([str(a) for a in args])
@@ -216,6 +255,9 @@ class MyClassifier(ABC):
             kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
 
             for train_idx, val_idx in kf.split(x, y):
+                if lamda is None:
+                    lamda = self.__find_best_lamda(x[train_idx], y[train_idx])
+
                 splits.append(
                     TrainingSplit(
                         n=len(train_idx),
@@ -223,18 +265,32 @@ class MyClassifier(ABC):
                         train_idx=train_idx,
                         val_idx=val_idx,
                         lamda=lamda
-                    ))
+                    )
+                )
         else:
+            if lamda is None:
+                lamda = self.__find_best_lamda(x, y)
+
             splits.append(
                 TrainingSplit(
                     n=x_train.shape[0],
                     d=x_train.shape[1],
                     train_idx=[i for i in range(len(y_train))],
-                    val_idx=[i for i in range(len(y_train), len(y_train)+len(y_val))]
+                    val_idx=[i for i in range(len(y_train), len(y_train)+len(y_val))],
+                    lamda=lamda
                 )
             )
 
         return x, y, splits
+
+    @staticmethod
+    def __find_best_lamda(x, y):
+        cv = LogisticRegression(fit_intercept=False, max_iter=5000)
+
+        parameters = {'C': np.linspace(.001, 2.0, 20)}
+        gs = GridSearchCV(cv, parameters, scoring='accuracy', n_jobs=-1).fit(x, y)
+
+        return gs.best_estimator_.C
 
     @staticmethod
     def __scale_data(data, method):
