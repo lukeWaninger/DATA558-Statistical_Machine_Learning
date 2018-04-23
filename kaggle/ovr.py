@@ -128,9 +128,9 @@ class MultiClassifier(MyClassifier):
         pass
 
     def __build_classifiers(self, method=None):
-        class_sets = self.__get_training_sets(method)
-
         cvs, x_idx, x_idx_v, y_v, x_v = [], [], [], [], []
+
+        class_sets = self.__get_training_sets(method)
         for pos, neg in class_sets:
             y = np.copy(self._y)
             x = np.copy(self._x)
@@ -275,8 +275,5 @@ except:
 
 
 MultiClassifier(x_train, y_train, x_val, y_val,
-                eps=0.001, n_jobs=-1, cv_splits=3,
+                eps=0.001, n_jobs=-1, cv_splits=45,
                 max_iter=500, method='both').fit()
-
-
-

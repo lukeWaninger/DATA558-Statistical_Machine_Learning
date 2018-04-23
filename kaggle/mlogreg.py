@@ -121,7 +121,7 @@ class MyLogisticRegression(MyClassifier):
             grad_x = self.__computegrad(b0)
 
             i += 1
-            self.log_metrics([i, t, norm(grad_x), norm(b0), self.__objective(b0)])
+            self.log_metrics([i, t, norm(grad_x), norm(b0), self.__objective(b0), self._lamda])
 
     def __fastgradalgo(self):
         theta = self.__thetas
@@ -140,7 +140,7 @@ class MyLogisticRegression(MyClassifier):
             theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
 
-            self.log_metrics([i, t, norm(grad), norm(b0), self.__objective(b0)])
+            self.log_metrics([i, t, norm(grad), norm(b0), self.__objective(b0), self._lamda])
 
     def __objective(self, beta):
         x, y, n, l = self._x, self._y, self._n, self._lamda

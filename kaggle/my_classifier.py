@@ -104,6 +104,7 @@ class MyClassifier(ABC):
     def coef_(self):
         return self.__cv_splits[self.__current_split].betas
 
+    # protected attributes
     @property
     def _d(self):
         return self.__cv_splits[self.__current_split].d
@@ -136,9 +137,11 @@ class MyClassifier(ABC):
     def _lamda(self):
         return self.__cv_splits[self.__current_split].lamda
 
+    # protected methods
     def _set_betas(self, betas):
         self.__cv_splits[self.__current_split].betas = betas
 
+    # public methods
     def fit(self):
         if self.__current_split == self.__finished:
             return False
@@ -176,11 +179,11 @@ class MyClassifier(ABC):
             print(row)
 
     @abstractmethod
-    def predict(self, x, beta):
+    def predict(self, x, beta=None):
         pass
 
     @abstractmethod
-    def predict_proba(self, x, beta):
+    def predict_proba(self, x, beta=None):
         pass
 
     def set_log_queue(self, queue):
@@ -197,14 +200,15 @@ class MyClassifier(ABC):
         with open('%s%s.pk' % (path, self.task), 'wb') as f:
             pickle.dump(dict_rep, f, pickle.HIGHEST_PROTOCOL)
 
+    # private methods
     def __compute_metrics(self, x, y, prediction_func=None):
         if x is None and y is None:
             return MetricSet()
 
         if prediction_func is None:
-            pre = self.predict(x, self.coef_)
+            pre = self.predict(x)
         else:
-            pre = prediction_func(x, self.coef_)
+            pre = prediction_func(x)
 
         num_classes = len(np.unique(y))
         if num_classes > 2:
