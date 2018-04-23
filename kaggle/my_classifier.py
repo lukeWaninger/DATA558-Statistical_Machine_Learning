@@ -211,6 +211,7 @@ class MyClassifier(ABC):
 
             with open('%s%s.pk' % (path, self.task), 'wb') as f:
                 pickle.dump(dict_rep, f, pickle.HIGHEST_PROTOCOL)
+
         except Exception as e:
             print('could not write %s to disk: %s' % (self.task, [str(a) for a in e.args]))
 
