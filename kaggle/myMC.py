@@ -197,21 +197,24 @@ class MultiClassifier(MyClassifier):
         return pairs
 
     def __load_classifiers(self, path='', method=None):
-        try:
-            if not hasattr(self, 'cvs'):
-                self.cvs = []
+        if not hasattr(self, 'cvs'):
+            self.cvs = []
 
-            tasks = ['%s vs %s' % (a, b) for a,  b in self.__get_training_sets(method)]
-            for task in tasks:
-                cv = MyLogisticRegression(self._x, self._y,
-                                          self._x_val, self._y_val,
-                                          task=task)
-                cv = cv.load_from_disk(path)
-                self.cvs.append(cv)
+        cvs = []
+        tasks = ['%s vs %s' % (a, b) for a,  b in self.__get_training_sets(method)]
+        for task in tasks:
+            cv = MyLogisticRegression(self._x, self._y,
+                                      self._x_val, self._y_val,
+                                      task=task)
+            cv = cv.load_from_disk(path)
+            if cv is not None:
+                cvs.append(cv)
+
+        if len(cvs) == len(tasks):
+            self.cvs = cvs
             return True
-        except Exception as e:
-            print(e.args)
-            return False
+
+        return False
 
     def __log_manager(self, log_queue, conn):
         start = time.time()

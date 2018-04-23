@@ -165,10 +165,11 @@ class MyClassifier(ABC):
             self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
             self.__x = data['x']
             self.__y = data['y']
-        except Exception as e:
-            print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
-        return self
+            return self
+        except Exception as e:
+            print('could not load %s from disk: %s' % (self.task, ', '.join([str(a) for a in e.args])))
+            return None
 
     def log_metrics(self, args, prediction_func=None):
         row  = '%s,p%s,%s,%s,' % (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
