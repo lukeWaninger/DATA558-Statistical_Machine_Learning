@@ -200,8 +200,8 @@ class MyClassifier(ABC):
 
     def predict_with_best_fold(self, x, metric='accuracy', beta=None):
         splits = self.__cv_splits
-        self.__current_split = idx = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
-        return self.predict(x, self.__cv_splits[idx].coef_)
+        self.__current_split = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
+        return self.predict(x, beta)
 
     def predict_proba_with_best_fold(self, x, metric='accuracy', beta=None):
         splits = self.__cv_splits

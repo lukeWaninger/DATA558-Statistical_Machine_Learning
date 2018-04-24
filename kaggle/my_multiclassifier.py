@@ -67,6 +67,7 @@ class MultiClassifier(MyClassifier):
             worker.join()
 
         log_manager.terminate()
+        return self
 
     def output_predictions(self, x):
         predictions = self.predict(x)
@@ -277,7 +278,7 @@ except:
 
 clf = MultiClassifier(x_train, y_train, x_val, y_val,
                       eps=0.001, n_jobs=-1, cv_splits=15, lamda=0.01,
-                      max_iter=500, method='all_pairs')
+                      max_iter=500, method='all_pairs').fit()
 clf.output_predictions(x_test)
 
 
