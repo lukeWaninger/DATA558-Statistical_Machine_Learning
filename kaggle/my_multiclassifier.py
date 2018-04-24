@@ -88,7 +88,7 @@ class MultiClassifier(MyClassifier):
                 if 'rest' in cv.task:
                     continue
 
-                pre = cv.predict(x)
+                pre = cv.predict_with_best_fold(x)
                 pos, drop, neg = cv.task.split(' ')
                 predictions.append([int(pos) if pi == 1 else int(neg) for pi in pre])
             predictions = [mode(pi).mode for pi in np.array(predictions).T]
@@ -203,8 +203,7 @@ class MultiClassifier(MyClassifier):
         cvs = []
         tasks = ['%s vs %s' % (a, b) for a,  b in self.__get_training_sets(method)]
         for task in tasks:
-            cv = MyLogisticRegression(self._x, self._y,
-                                      self._x_val, self._y_val,
+            cv = MyLogisticRegression(self._x, self._y, self._x_val, self._y_val,
                                       task=task)
             cv = cv.load_from_disk(path)
             if cv is not None:
@@ -276,6 +275,9 @@ except:
     x_test = np.load('data/test_features.npy')
 
 
-MultiClassifier(x_train, y_train, x_val, y_val,
-                eps=0.001, n_jobs=-1, cv_splits=45,
-                max_iter=500, method='both').fit()
+clf = MultiClassifier(x_train, y_train, x_val, y_val,
+                      eps=0.001, n_jobs=-1, cv_splits=15, lamda=0.01,
+                      max_iter=500, method='all_pairs')
+clf.output_predictions(x_test)
+
+

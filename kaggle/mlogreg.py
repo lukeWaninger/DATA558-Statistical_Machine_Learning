@@ -1,6 +1,5 @@
 from my_classifier import MyClassifier
 import numpy as np
-import pickle
 
 # misc setup for readability
 norm = np.linalg.norm
@@ -149,4 +148,3 @@ class MyLogisticRegression(MyClassifier):
 
     def __repr__(self):
         return "MyLogisticRegression(task=%s, lambda=%s)" % (self.task, self._lamda)
-

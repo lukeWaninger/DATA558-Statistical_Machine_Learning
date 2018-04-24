@@ -93,6 +93,10 @@ class MyClassifier(ABC):
                  scale_method=None):
         self.task = task
 
+        if 'multi' in task:
+            cv_splits = 1
+            lamda = 1.
+
         self.__x, self.__y, self.__cv_splits = \
             self.__generate_splits(x_train, y_train, x_val, y_val,
                                    cv_splits, lamda, scale_method)
@@ -152,17 +156,22 @@ class MyClassifier(ABC):
         return True
 
     def load_from_disk(self, path):
+        self.__cv_splits = None
+        self.__x = None
+        self.__y = None
+
         try:
             with open('%s%s.pk' % (path, self.task), 'rb') as f:
                 data = pickle.load(f)
 
+                self.task = data['task']
                 self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
                 self.__x = data['x']
                 self.__y = data['y']
 
                 return self
         except Exception as e:
-            print('could not write model to disk: %s' % ', '.join([str(a) for a in e.args]))
+            print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
     def log_metrics(self, args, prediction_func=None):
         train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
@@ -188,6 +197,16 @@ class MyClassifier(ABC):
     @abstractmethod
     def predict_proba(self, x, beta=None):
         pass
+
+    def predict_with_best_fold(self, x, metric='accuracy', beta=None):
+        splits = self.__cv_splits
+        self.__current_split = idx = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
+        return self.predict(x, self.__cv_splits[idx].coef_)
+
+    def predict_proba_with_best_fold(self, x, metric='accuracy', beta=None):
+        splits = self.__cv_splits
+        self.__current_split = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
+        return self.predict_proba(x, beta)
 
     def set_log_queue(self, queue):
         self.__log_queue = queue
@@ -302,11 +321,14 @@ class MyClassifier(ABC):
 
         return x, y, splits
 
-    @staticmethod
-    def __find_best_lamda(x, y):
+    def __find_best_lamda(self, x, y):
         cv = LogisticRegression(fit_intercept=False, max_iter=5000)
 
-        parameters = {'C': np.linspace(.001, 2.0, 20)}
+        if 'rest' in self.task:
+            parameters = {'C': np.linspace(.001, .2, 20)}
+        else:
+            parameters = {'C': np.linspace(.001, 2.0, 20)}
+
         gs = GridSearchCV(cv, parameters, scoring='accuracy', n_jobs=-1).fit(x, y)
 
         return gs.best_estimator_.C
