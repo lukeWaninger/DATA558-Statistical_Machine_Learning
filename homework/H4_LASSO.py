@@ -96,12 +96,13 @@ except:
 
 num_splits = 5
 parameters = {
-    'classifers': [
+    'classifiers': [
         {
             'type': 'LASSO',
             'parameters': {
                 'alpha': np.linspace(0.01, 1., num_splits),
-                'max_iter': [1000]
+                'max_iter': [1000],
+                'algo': ['cyclic']
             }
         }
     ],

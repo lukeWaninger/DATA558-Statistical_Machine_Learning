@@ -15,16 +15,15 @@ class MyRidgeRegression(MyClassifier):
 
         super().__init__(x_train, y_train, parameters, x_val, y_val, log_queue, task)
 
-        self.eps = parameters['eps']
-        self.max_iter = parameters['max_iter']
-
         self.__betas = self.coef_
-        self.__eta = 1.
         self.__objective_vals = None
         self.__thetas = None
 
+    def _simon_says_fit(self):
+        return self.fit()
+
     # public methods
-    def fit(self, algo='grad', init_method='zeros'):
+    def fit(self):
         def init(method):
             if method == 'ones':
                 b = [np.ones(self._d)]
@@ -40,11 +39,12 @@ class MyRidgeRegression(MyClassifier):
             self.__betas = self.coef_
 
             if len(self.__betas) == 0:
-                self.__betas = init(init_method)
+                self.__betas = init(self._param('init_method'))
                 self._set_betas(self.__betas[0])
 
             self.__objective_vals = None
 
+            algo = self._param('algo')
             if algo == 'grad':
                 self.__grad_descent()
             else:
@@ -67,22 +67,23 @@ class MyRidgeRegression(MyClassifier):
         return None
 
     def __objective(self):
-        x, y, l, beta = self._x, self._y, self._lamda, self.__betas[-1]
+        x, y, l, beta = self._x, self._y, self._param('lambda'), self.__betas[-1]
 
         return 2/len(y) * (norm((y-x@beta)**2)+l*norm(beta)**2)
 
     def __compute_grad(self):
-        x, y, l, beta = self._x, self._y, self._lamda, self.__betas[-1]
+        x, y, l, beta = self._x, self._y, self._param('lambda'), self.__betas[-1]
 
         return 2/len(y) * (x.T@x@beta + l*beta - x.T@y)
 
     def __grad_descent(self):
-        x, y, l, beta, eta = self._x, self._y, self._lamda, self.__betas[-1], self.__eta
+        x, y, beta = self._x, self._y, self.__betas[-1]
+        l, eta, max_iter = self._param('lambda'), self._param('eta'), self._param('max_iter')
 
         i, xvals = 0, []
         grad_x = self.__compute_grad()
 
-        while i < self.max_iter:
+        while i < max_iter:
             beta = beta - eta * grad_x
             xvals.append(self.__objective())
             grad_x = self.__compute_grad()

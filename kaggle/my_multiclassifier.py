@@ -168,19 +168,19 @@ class MultiClassifier:
 
                 if cv_type == 'logistic':
                     classifier = MyLogisticRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                                      parameters=['parameters'],
+                                                      parameters=cv['parameters'],
                                                       task=task + " [logistic regression]",
                                                       log_queue=self.__log_queue)
 
                 elif cv_type == 'LASSO':
                     classifier = MyLASSORegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                                   parameters=['parameters'],
+                                                   parameters=cv['parameters'],
                                                    task=task + " [LASSO regression]",
                                                    log_queue=self.__log_queue)
 
                 elif cv_type == 'ridge':
-                    classifier = MyLASSORegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                                   parameters=['parameters'],
+                    classifier = MyRidgeRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
+                                                   parameters=cv['parameters'],
                                                    task=task + " [ridge regression]",
                                                    log_queue=self.__log_queue)
 

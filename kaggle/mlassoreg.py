@@ -12,16 +12,18 @@ class MyLASSORegression(MyClassifier):
         super().__init__(x_train, y_train, x_val, y_val, parameters,
                          log_queue=log_queue, task=task)
 
-        self.max_iter = parameters['max_iter']
-
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
 
+    def _simon_says_fit(self):
+        return self.fit()
+
     # public methods
-    def fit(self, algo='random'):
+    def fit(self):
         while super().fit():
             self.__betas = np.zeros(self._d)
 
+            algo = self._param('algo')
             if algo == 'random':
                 self.__random_coordinate_descent()
 
@@ -60,7 +62,7 @@ class MyLASSORegression(MyClassifier):
 
     def __cyclic_coordinate_descent(self, idx=0, max_iter=None):
         if not max_iter:
-            max_iter = self.max_iter
+            max_iter = self._param('max_iter')
 
         t = 0
         while t < max_iter:
@@ -78,7 +80,7 @@ class MyLASSORegression(MyClassifier):
             t += 1
 
     def __compute_beta(self, j):
-        n, l = self._n, self._lamda
+        n, l = self._n, self._param('alpha')
         b = np.concatenate((self.__betas[:j], self.__betas[j+1:]))
         x = np.concatenate((self._x[:, :j], self._x[:, j+1:]), axis=1)
 
@@ -98,7 +100,7 @@ class MyLASSORegression(MyClassifier):
         return norm((y-x*b)) + l*abs(b)
 
     def __objective(self):
-        x, y, n, l, b = self._x, self._y, self._n, self._lamda, self.__betas
+        x, y, n, l, b = self._x, self._y, self._n, self._param('lambda'), self.__betas
 
         return (1/n)*norm(y-x @ b)**2 + l*sum(abs(b))
 
@@ -107,7 +109,7 @@ class MyLASSORegression(MyClassifier):
 
     def __random_coordinate_descent(self, max_iter=None):
         if not max_iter:
-            max_iter = self.max_iter
+            max_iter = self._param('max_iter')
 
         t = 0
         while t < max_iter:

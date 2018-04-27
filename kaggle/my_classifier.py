@@ -52,13 +52,13 @@ class MetricSet:
 
 
 class TrainingSplit:
-    def __init__(self, n=0, d=0, train_idx=None, val_idx=None, lamda=0.1, betas=None):
+    def __init__(self, n=0, d=0, train_idx=None, val_idx=None, parameters=None, betas=None):
         self.n = n
         self.d = d
-        self.train_idx = train_idx
-        self.val_idx   = val_idx
-        self.lamda     = lamda
-        self.betas     = betas if betas is not None else []
+        self.train_idx  = train_idx
+        self.val_idx    = val_idx
+        self.parameters = parameters if parameters is not None else {}
+        self.betas      = betas if betas is not None else []
         self.train_metrics = None
         self.val_metrics   = None
 
@@ -66,23 +66,23 @@ class TrainingSplit:
         return {
             'n': self.n,
             'd': self.d,
-            'train_idx':  self.train_idx,
-            'val_idx':  self.val_idx,
-            'lamda':  self.lamda,
+            'train_idx':   self.train_idx,
+            'val_idx':     self.val_idx,
+            'parameters':  self.parameters,
             'betas': self.betas,
             'train_metrics': self.train_metrics.as_dict(),
-            'val_metrics': self.val_metrics.as_dict()
+            'val_metrics':   self.val_metrics.as_dict()
         }
 
     def from_dict(self, data):
-        self.n = data['n']
-        self.d = data['d']
-        self.train_idx = data['train_idx']
-        self.val_idx   = data['val_idx']
-        self.lamda = data['lamda']
         self.betas = data['betas']
+        self.d = data['d']
         self.train_metrics = MetricSet().from_dict(data['train_metrics'])
         self.val_metrics   = MetricSet().from_dict(data['val_metrics'])
+        self.n = data['n']
+        self.parameters = data['lamda']
+        self.train_idx  = data['train_idx']
+        self.val_idx    = data['val_idx']
 
         return self
 
@@ -98,7 +98,6 @@ class MyClassifier(ABC):
             self.__generate_splits(x_train, y_train, x_val, y_val)
 
         self.__current_split = -1
-        self.__finished = self.__parameters['cv_splits']-1
 
         try:
             self.__log_path = parameters['log_path']
@@ -143,17 +142,20 @@ class MyClassifier(ABC):
     def betas(self):
         return self.__cv_splits[self.__current_split].betas
 
-    @property
-    def _lamda(self):
-        return self.__cv_splits[self.__current_split].lamda
-
     # protected methods
+    @abstractmethod
+    def _simon_says_fit(self):
+        pass
+
+    def _param(self, parameter):
+        return self.__cv_splits[self.__current_split].parameters[parameter]
+
     def _set_betas(self, betas):
         self.__cv_splits[self.__current_split].betas = betas
 
     # public methods
     def fit(self):
-        if self.__current_split == self.__finished:
+        if self.__current_split == len(self.__cv_splits)-1:
             return False
 
         self.__current_split += 1
@@ -178,6 +180,10 @@ class MyClassifier(ABC):
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
     def log_metrics(self, args, prediction_func=None, include='all'):
+        row = '%s,p%s,%s,%s,' % \
+              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
+              str(self.__cv_splits[self.__current_split].parameters)
+
         if include == 'all':
             train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
             val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
@@ -185,15 +191,11 @@ class MyClassifier(ABC):
             self.__cv_splits[self.__current_split].train_metrics = train_metrics
             self.__cv_splits[self.__current_split].val_metrics = val_metrics
 
-            row = '%s,p%s,%s,%s,' % \
-                  (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
-                  str(train_metrics) + ',' + str(val_metrics) + ',' + \
+            row += str(train_metrics) + ',' + str(val_metrics) + ',' + \
                   ','.join([str(a) for a in args])
 
         elif include == 'reduced':
-            row = '%s,p%s,%s,%s,' % \
-                  (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
-                  ','.join([str(a) for a in args])
+            row += ','.join([str(a) for a in args])
 
         else:
             return
@@ -215,9 +217,20 @@ class MyClassifier(ABC):
 
     def predict_with_best_fold(self, x, metric='accuracy', beta=None):
         splits = self.__cv_splits
-        self.__current_split = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
+        idx = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])[0]
 
-        # TODO: retrain split with x_train and x_val
+        best_split = TrainingSplit(
+            n=self.__x.shape[0],
+            d=self.__x.shape[1],
+            train_idx=np.arange(self.__x.shape[0]),
+            parameters=self.__cv_splits[idx]
+        )
+
+        self.__cv_splits.append(best_split)
+
+        print('training with all features ' + str(best_split.parameters))
+        self._simon_says_fit()
+
         return self.predict(x, beta)
 
     def set_log_queue(self, queue):
@@ -301,15 +314,33 @@ class MyClassifier(ABC):
 
         if y_val is not None:
             y = np.concatenate((y_train, y_val))
+        else:
+            y = y_train
 
-        splits = []
+        splits, idx_set = [], {}
+        cv_splits = len(self.__parameters.keys())*len(self.__parameters.values())
 
+        for key, value in self.__parameters.iteritems():
+            idx_set[key] = 0
+
+        def set_parameter_idx():
+            for k, v in self.__parameters.iteritems():
+                if idx_set[k] == len(v) - 1:
+                    idx_set[k] = 0
+                else:
+                    idx_set[k] += 1
+                    break
+
+        # create the splits
         if cv_splits > 1:
             kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
 
             for train_idx, val_idx in kf.split(x, y):
-                if lamda is None:
-                    lamda = self.__find_best_lamda(x[train_idx], y[train_idx])
+                set_parameter_idx()
+
+                parameters = {}
+                for key, value in self.__parameters.iteritems():
+                    parameters[key] = value[idx_set[key]]
 
                 splits.append(
                     TrainingSplit(
@@ -317,12 +348,13 @@ class MyClassifier(ABC):
                         d=x_train.shape[1],
                         train_idx=train_idx,
                         val_idx=val_idx,
-                        lamda=lamda
+                        parameters=parameters
                     )
                 )
         else:
-            if lamda is None:
-                lamda = self.__find_best_lamda(x, y)
+            parameters = {}
+            for key, value in self.__parameters:
+                parameters[key] = value[0]
 
             splits.append(
                 TrainingSplit(
@@ -330,7 +362,7 @@ class MyClassifier(ABC):
                     d=x_train.shape[1],
                     train_idx=[i for i in range(len(y_train))],
                     val_idx=[i for i in range(len(y_train), len(y_train)+len(y_val))],
-                    lamda=lamda
+                    parameters=parameters
                 )
             )
 
