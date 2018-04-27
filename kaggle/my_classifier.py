@@ -90,7 +90,7 @@ class TrainingSplit:
 class MyClassifier(ABC):
     def __init__(self, x_train, y_train, x_val=None, y_val=None,
                  lamda=None, cv_splits=1, log_queue=None, task=None,
-                 scale_method=None):
+                 scale_method=None, log_path=None):
         self.task = task
 
         if 'multi' in task:
@@ -104,6 +104,14 @@ class MyClassifier(ABC):
         self.__current_split = -1
         self.__finished = cv_splits-1
         self.__log_queue = log_queue
+
+        if log_path is not None:
+            log_path += 'log_%s.csv' % self.task
+            if os.path.exists(log_path):
+                os.remove(log_path)
+            self.log_path = log_path
+        else:
+            self.log_path = None
 
     @property
     def coef_(self):
@@ -173,22 +181,34 @@ class MyClassifier(ABC):
         except Exception as e:
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
-    def log_metrics(self, args, prediction_func=None):
-        train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
-        val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+    def log_metrics(self, args, prediction_func=None, include='all'):
+        if include == 'all':
+            train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
+            val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
 
-        self.__cv_splits[self.__current_split].train_metrics = train_metrics
-        self.__cv_splits[self.__current_split].val_metrics = val_metrics
+            self.__cv_splits[self.__current_split].train_metrics = train_metrics
+            self.__cv_splits[self.__current_split].val_metrics = val_metrics
 
-        row = '%s,p%s,%s,%s,' % \
-              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
-              str(train_metrics) + ',' + str(val_metrics) + ',' + \
-              ','.join([str(a) for a in args])
+            row = '%s,p%s,%s,%s,' % \
+                  (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
+                  str(train_metrics) + ',' + str(val_metrics) + ',' + \
+                  ','.join([str(a) for a in args])
+
+        elif include == 'reduced':
+            row = '%s,p%s,%s,%s,' % \
+                  (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
+                  ','.join([str(a) for a in args])
+
+        else:
+            return
 
         if self.__log_queue is not None:
             self.__log_queue.put(row)
         else:
-            print(row)
+            if self.log_path is not None:
+                with open(self.log_path, 'a+') as f:
+                    f.writelines(row + '\n')
+            #print(row)
 
     @abstractmethod
     def predict(self, x, beta=None):
@@ -202,11 +222,6 @@ class MyClassifier(ABC):
         splits = self.__cv_splits
         self.__current_split = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
         return self.predict(x, beta)
-
-    def predict_proba_with_best_fold(self, x, metric='accuracy', beta=None):
-        splits = self.__cv_splits
-        self.__current_split = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
-        return self.predict_proba(x, beta)
 
     def set_log_queue(self, queue):
         self.__log_queue = queue
@@ -283,12 +298,18 @@ class MyClassifier(ABC):
 
     def __generate_splits(self, x_train, y_train, x_val, y_val,
                           cv_splits, lamda, scale_method):
-        x = np.concatenate((x_train, x_val))
-        x = self.__scale_data(x, scale_method)
+        if x_val is not None:
+            x = np.concatenate((x_train, x_val))
+        else:
+            x = x_train
 
-        y = np.concatenate((y_train, y_val))
+        if scale_method is not None:
+            x = self.__scale_data(x, scale_method)
+
+        if y_val is not None:
+            y = np.concatenate((y_train, y_val))
+
         splits = []
-
         if cv_splits > 1:
             kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
 

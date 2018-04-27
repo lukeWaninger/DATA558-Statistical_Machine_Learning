@@ -1,5 +1,5 @@
-from mlogreg import MyLogisticRegression
-from my_classifier import MyClassifier
+from kaggle.mlogreg import MyLogisticRegression
+from kaggle.my_classifier import MyClassifier
 import multiprocessing
 from scipy.stats import mode
 import numpy as np
