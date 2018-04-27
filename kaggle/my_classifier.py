@@ -318,13 +318,14 @@ class MyClassifier(ABC):
             y = y_train
 
         splits, idx_set = [], {}
-        cv_splits = len(self.__parameters.keys())*len(self.__parameters.values())
+        cv_splits = 1
 
-        for key, value in self.__parameters.iteritems():
+        for key, value in self.__parameters.items():
+            cv_splits *= len(value)
             idx_set[key] = 0
 
         def set_parameter_idx():
-            for k, v in self.__parameters.iteritems():
+            for k, v in self.__parameters.items():
                 if idx_set[k] == len(v) - 1:
                     idx_set[k] = 0
                 else:
@@ -335,11 +336,15 @@ class MyClassifier(ABC):
         if cv_splits > 1:
             kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
 
+            first = True
             for train_idx, val_idx in kf.split(x, y):
-                set_parameter_idx()
+                if not first:
+                    set_parameter_idx()
+                else:
+                    first = False
 
                 parameters = {}
-                for key, value in self.__parameters.iteritems():
+                for key, value in self.__parameters.items():
                     parameters[key] = value[idx_set[key]]
 
                 splits.append(

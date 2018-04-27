@@ -2,6 +2,7 @@ from kaggle.mlassoreg import MyLASSORegression
 from kaggle.my_multiclassifier import MultiClassifier
 import numpy as np
 import os
+import re
 import pandas as pd
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import train_test_split
@@ -80,18 +81,20 @@ import sys
 
 
 # EXERCISE 3
+p1 = re.sub(r'(homework)', '', os.getcwd()) + 'kaggle/data/'
+p2 = re.sub(r'(homework)', '', os.getcwd()) + 'data/'
 try:
-    x_train = np.load('kaggle/data/train_features.npy')
-    y_train = np.load('kaggle/data/train_labels.npy')
-    x_val = np.load('kaggle/data/val_features.npy')
-    y_val = np.load('kaggle/data/val_labels.npy')
-    x_test = np.load('kaggle/data/test_features.npy')
+    x_train = np.load(p1 + 'train_features.npy')
+    y_train = np.load(p1 + 'train_labels.npy')
+    x_val = np.load(p1 + 'val_features.npy')
+    y_val = np.load(p1 + 'val_labels.npy')
+    x_test = np.load(p1 + 'test_features.npy')
 except:
-    x_train = np.load('data/train_features.npy')
-    y_train = np.load('data/train_labels.npy')
-    x_val = np.load('data/val_features.npy')
-    y_val = np.load('data/val_labels.npy')
-    x_test = np.load('data/test_features.npy')
+    x_train = np.load(p2 + 'train_features.npy')
+    y_train = np.load(p2 + 'train_labels.npy')
+    x_val = np.load(p2 + 'val_features.npy')
+    y_val = np.load(p2 + 'val_labels.npy')
+    x_test = np.load(p2 + 'test_features.npy')
 
 
 num_splits = 5
@@ -107,6 +110,9 @@ parameters = {
         }
     ],
 }
-clf = MultiClassifier(x_train, y_train, x_val, y_val, parameters).fit()
+clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
+                      x_val=x_val, y_val=y_val, n_jobs=1,
+                      classification_method='all_pairs')
+clf.fit()
 clf.output_predictions(x_test)
 

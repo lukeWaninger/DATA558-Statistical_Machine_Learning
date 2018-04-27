@@ -13,7 +13,8 @@ class MyRidgeRegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
                  log_queue=None, task=None):
 
-        super().__init__(x_train, y_train, parameters, x_val, y_val, log_queue, task)
+        super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
+                         x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
 
         self.__betas = self.coef_
         self.__objective_vals = None

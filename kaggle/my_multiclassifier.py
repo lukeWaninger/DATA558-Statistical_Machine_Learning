@@ -10,8 +10,8 @@ import time
 
 
 class MultiClassifier:
-    def __init__(self, x_train, y_train, x_val=None, y_val=None,
-                 classification_method='ovr', n_jobs=-1, parameters=None):
+    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
+                 classification_method='ovr', n_jobs=-1):
 
         cpu_count = multiprocessing.cpu_count()
         if n_jobs == -1 or n_jobs >= cpu_count:

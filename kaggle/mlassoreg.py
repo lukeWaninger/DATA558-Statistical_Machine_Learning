@@ -9,8 +9,8 @@ class MyLASSORegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
                  expected_betas=None, log_queue=None, task=None):
 
-        super().__init__(x_train, y_train, x_val, y_val, parameters,
-                         log_queue=log_queue, task=task)
+        super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
+                         x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
 
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
@@ -74,13 +74,13 @@ class MyLASSORegression(MyClassifier):
                 idx += 1
                 self.log_metrics([
                     t, j, self.__objective(),
-                    self.__correct_beta_percentage(),
+                    #self.__correct_beta_percentage(),
                     self.__beta_str()
                 ], include='reduced')
             t += 1
 
     def __compute_beta(self, j):
-        n, l = self._n, self._param('alpha')
+        n, a = self._n, self._param('alpha')
         b = np.concatenate((self.__betas[:j], self.__betas[j+1:]))
         x = np.concatenate((self._x[:, :j], self._x[:, j+1:]), axis=1)
 
@@ -89,8 +89,8 @@ class MyLASSORegression(MyClassifier):
 
         switch = 2/self._n * norm(r)
 
-        if abs(switch) >= l:
-            bj = (-1*np.sign(switch)*l + (2/n)*self._x[:, j].T@r)/((2/n)*z)
+        if abs(switch) >= a:
+            bj = (-1*np.sign(switch)*a + (2/n)*self._x[:, j].T@r)/((2/n)*z)
         else:
             bj = 0
         return bj
@@ -100,9 +100,10 @@ class MyLASSORegression(MyClassifier):
         return norm((y-x*b)) + l*abs(b)
 
     def __objective(self):
-        x, y, n, l, b = self._x, self._y, self._n, self._param('lambda'), self.__betas
+        x, y, n = self._x, self._y, self._n
+        a, b = self._param('alpha'), self.__betas
 
-        return (1/n)*norm(y-x @ b)**2 + l*sum(abs(b))
+        return (1/n)*norm(y-x @ b)**2 + a*sum(abs(b))
 
     def __pick_coordinate(self):
         return np.random.randint(0, self._d, 1)[0]
@@ -120,7 +121,7 @@ class MyLASSORegression(MyClassifier):
 
                 self.log_metrics([
                     t, j, self.__objective(),
-                    self.__correct_beta_percentage(),
+                    #self.__correct_beta_percentage(),
                     self.__beta_str()
                 ], include='reduced')
             t += 1
