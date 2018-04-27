@@ -1,5 +1,6 @@
 from kaggle.my_classifier import MyClassifier
 import numpy as np
+import tqdm
 
 # misc setup for readability
 norm = np.linalg.norm
@@ -7,15 +8,17 @@ norm = np.linalg.norm
 
 class MyLASSORegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 expected_betas=None, log_queue=None, task=None):
+                 expected_betas=None, log_queue=None, task=None, log=False):
 
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
                          x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
 
+        self.__log = log
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
 
-    def _simon_says_fit(self):
+    def _simon_says_fit(self, log):
+        self.__log = log
         return self.fit()
 
     # public methods
@@ -64,7 +67,7 @@ class MyLASSORegression(MyClassifier):
         if not max_iter:
             max_iter = self._param('max_iter')
 
-        t = 0
+        t, pbar = 0, tqdm.tqdm(total=max_iter, desc=self.task)
         while t < max_iter:
             for i in range(self._d):
                 j = idx % self._d
@@ -72,12 +75,16 @@ class MyLASSORegression(MyClassifier):
                 self.__betas[j] = b0
 
                 idx += 1
-                self.log_metrics([
-                    t, j, self.__objective(),
-                    #self.__correct_beta_percentage(),
-                    self.__beta_str()
-                ], include='reduced')
+
+                if self.__log:
+                    self.log_metrics([
+                        t, j, self.__objective(),
+                        #self.__correct_beta_percentage(),
+                        self.__beta_str()
+                    ], include='reduced')
+            pbar.update(1)
             t += 1
+        pbar.close()
 
     def __compute_beta(self, j):
         n, a = self._n, self._param('alpha')
@@ -89,7 +96,7 @@ class MyLASSORegression(MyClassifier):
 
         switch = 2/self._n * norm(r)
 
-        if abs(switch) >= a:
+        if abs(switch) >= a and z != 0:
             bj = (-1*np.sign(switch)*a + (2/n)*self._x[:, j].T@r)/((2/n)*z)
         else:
             bj = 0
@@ -112,7 +119,7 @@ class MyLASSORegression(MyClassifier):
         if not max_iter:
             max_iter = self._param('max_iter')
 
-        t = 0
+        t, pbar = 0, tqdm.tqdm(total=max_iter, desc=self.task)
         while t < max_iter:
             for i in range(self._d):
                 j = self.__pick_coordinate()
@@ -124,4 +131,6 @@ class MyLASSORegression(MyClassifier):
                     #self.__correct_beta_percentage(),
                     self.__beta_str()
                 ], include='reduced')
+            pbar.update(1)
             t += 1
+        pbar.close()

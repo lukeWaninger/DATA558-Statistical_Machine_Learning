@@ -144,7 +144,7 @@ class MyClassifier(ABC):
 
     # protected methods
     @abstractmethod
-    def _simon_says_fit(self):
+    def _simon_says_fit(self, log):
         pass
 
     def _param(self, parameter):
@@ -229,7 +229,7 @@ class MyClassifier(ABC):
         self.__cv_splits.append(best_split)
 
         print('training with all features ' + str(best_split.parameters))
-        self._simon_says_fit()
+        self._simon_says_fit(log=True)
 
         return self.predict(x, beta)
 

@@ -90,28 +90,8 @@ class MultiClassifier:
             # break ties at random unless ovr classifiers have been fitted
             ties = [(i, pi) for i, pi in enumerate(predictions) if len(pi) > 1]
             if len(ties) > 0:
-                break_at_random = not self.__load_classifiers(method='ovr')
-                if not break_at_random:
-                    breaker_idx = np.unique(np.concatenate(np.array([pi for i, pi in ties])))
-                    breakers = {}
-                    tasks = [(i, '%s vs rest' % i) for i in breaker_idx]
-
-                    for i, task in tasks:
-                        c = [c for c in self.cvs if c.task == task][0]
-                        breakers[str(i)] = c
-
-                    if len(breakers) == 0:
-                        break_at_random = True
-
-                    else:
-                        for idx, tie in ties:
-                            probas = dict([(c.task.split()[0], c.predict_proba([x[idx]]))
-                                           for c in [breakers[str(i)] for i in tie]])
-                            predictions[idx] = list(probas.keys())[np.argmin(probas)[0]]
-
-                if break_at_random:
-                    for idx, pi in ties:
-                        predictions[idx] = np.random.choice(pi)
+                for idx, pi in ties:
+                    predictions[idx] = np.random.choice(pi)
 
             predictions = [int(i) for i in predictions]
             return predictions
@@ -212,7 +192,8 @@ class MultiClassifier:
     def __log_manager(self, log_queue, conn):
         start = time.time()
 
-        path = '/mnt/hgfs/descent_logs/descent_log_%s_%s.csv' % (self.task, str(int(time.time())))
+        # /mnt/hgfs/descent_logs/
+        path = 'descent_log_%s_%s.csv' % (self.task, str(int(time.time())))
         header = 'timestamp,pid,task,split,test_acc,test_err,test_precision,test_recall,test_f1,' \
                  'test_fpr,test_tpr,test_specificity,val_acc,val_err,val_precision,' \
                  'val_recall,val_f1,val_fpr,val_tpr,val_specificity\n'
@@ -228,7 +209,6 @@ class MultiClassifier:
                 running -= 1
 
             else:
-                print(message)
                 try:
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")

@@ -81,21 +81,13 @@ import sys
 
 
 # EXERCISE 3
-p1 = re.sub(r'(homework)', '', os.getcwd()) + 'kaggle/data/'
-p2 = re.sub(r'(homework)', '', os.getcwd()) + 'data/'
-try:
-    x_train = np.load(p1 + 'train_features.npy')
-    y_train = np.load(p1 + 'train_labels.npy')
-    x_val = np.load(p1 + 'val_features.npy')
-    y_val = np.load(p1 + 'val_labels.npy')
-    x_test = np.load(p1 + 'test_features.npy')
-except:
-    x_train = np.load(p2 + 'train_features.npy')
-    y_train = np.load(p2 + 'train_labels.npy')
-    x_val = np.load(p2 + 'val_features.npy')
-    y_val = np.load(p2 + 'val_labels.npy')
-    x_test = np.load(p2 + 'test_features.npy')
+p1 = re.sub(r'(homework)|(kaggle)|(data)+', '', os.getcwd()) + '/kaggle/data/'
 
+x_train = np.load(p1 + 'train_features.npy')
+y_train = np.load(p1 + 'train_labels.npy')
+x_val = np.load(p1 + 'val_features.npy')
+y_val = np.load(p1 + 'val_labels.npy')
+x_test = np.load(p1 + 'test_features.npy')
 
 num_splits = 5
 parameters = {
