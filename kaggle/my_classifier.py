@@ -88,30 +88,27 @@ class TrainingSplit:
 
 
 class MyClassifier(ABC):
-    def __init__(self, x_train, y_train, x_val=None, y_val=None,
-                 lamda=None, cv_splits=1, log_queue=None, task=None,
-                 scale_method=None, log_path=None):
+    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
+                 preprocessor=None, task=None, log_path=None, log_queue=None):
+        self.log_path = log_path
         self.task = task
 
-        if 'multi' in task:
-            cv_splits = 1
-            lamda = 1.
-
+        self.__parameters = parameters
         self.__x, self.__y, self.__cv_splits = \
-            self.__generate_splits(x_train, y_train, x_val, y_val,
-                                   cv_splits, lamda, scale_method)
+            self.__generate_splits(x_train, y_train, x_val, y_val)
 
         self.__current_split = -1
-        self.__finished = cv_splits-1
-        self.__log_queue = log_queue
+        self.__finished = self.__parameters['cv_splits']-1
 
-        if log_path is not None:
-            log_path += 'log_%s.csv' % self.task
-            if os.path.exists(log_path):
-                os.remove(log_path)
-            self.log_path = log_path
-        else:
-            self.log_path = None
+        try:
+            self.__log_path = parameters['log_path']
+        except:
+            self.__log_path = None
+
+        try:
+            self.__log_queue = log_queue
+        except:
+            self.__log_queue = None
 
     @property
     def coef_(self):
@@ -157,7 +154,6 @@ class MyClassifier(ABC):
     # public methods
     def fit(self):
         if self.__current_split == self.__finished:
-            self.write_to_disk('')
             return False
 
         self.__current_split += 1
@@ -208,7 +204,6 @@ class MyClassifier(ABC):
             if self.log_path is not None:
                 with open(self.log_path, 'a+') as f:
                     f.writelines(row + '\n')
-            #print(row)
 
     @abstractmethod
     def predict(self, x, beta=None):
@@ -221,6 +216,8 @@ class MyClassifier(ABC):
     def predict_with_best_fold(self, x, metric='accuracy', beta=None):
         splits = self.__cv_splits
         self.__current_split = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])
+
+        # TODO: retrain split with x_train and x_val
         return self.predict(x, beta)
 
     def set_log_queue(self, queue):
@@ -296,20 +293,17 @@ class MyClassifier(ABC):
         return MetricSet(acc=acc, err=err, pre=prec, rec=rec,
                          f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
 
-    def __generate_splits(self, x_train, y_train, x_val, y_val,
-                          cv_splits, lamda, scale_method):
+    def __generate_splits(self, x_train, y_train, x_val, y_val):
         if x_val is not None:
             x = np.concatenate((x_train, x_val))
         else:
             x = x_train
 
-        if scale_method is not None:
-            x = self.__scale_data(x, scale_method)
-
         if y_val is not None:
             y = np.concatenate((y_train, y_val))
 
         splits = []
+
         if cv_splits > 1:
             kf = KFold(n_splits=cv_splits, shuffle=True, random_state=42)
 
@@ -341,24 +335,3 @@ class MyClassifier(ABC):
             )
 
         return x, y, splits
-
-    def __find_best_lamda(self, x, y):
-        cv = LogisticRegression(fit_intercept=False, max_iter=5000)
-
-        if 'rest' in self.task:
-            parameters = {'C': np.linspace(.001, .2, 20)}
-        else:
-            parameters = {'C': np.linspace(.001, 2.0, 20)}
-
-        gs = GridSearchCV(cv, parameters, scoring='accuracy', n_jobs=-1).fit(x, y)
-
-        return gs.best_estimator_.C
-
-    @staticmethod
-    def __scale_data(data, method):
-        if method == 'standardize':
-            return StandardScaler().fit_transform(data)
-        elif method == 'minmax':
-            return MinMaxScaler().fit_transform(data)
-        else:
-            return data

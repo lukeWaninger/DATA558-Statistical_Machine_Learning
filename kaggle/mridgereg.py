@@ -1,4 +1,4 @@
-from my_classifier import MyClassifier
+from kaggle.my_classifier import MyClassifier
 import numpy as np
 
 
@@ -10,18 +10,16 @@ rand.seed(42)
 
 
 class MyRidgeRegression(MyClassifier):
-    def __init__(self, x_train, y_train, x_val=None, y_val=None,
-                 lamda=.01, max_iter=500, eps=0.001, cv_splits=1,
+    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
                  log_queue=None, task=None):
 
-        super().__init__(x_train, y_train, x_val, y_val, lamda,
-                         cv_splits, log_queue, task)
+        super().__init__(x_train, y_train, parameters, x_val, y_val, log_queue, task)
 
-        self.eps = eps
-        self.max_iter = max_iter
+        self.eps = parameters['eps']
+        self.max_iter = parameters['max_iter']
 
         self.__betas = self.coef_
-        self.__eta = 1. #self.__calc_t_init()
+        self.__eta = 1.
         self.__objective_vals = None
         self.__thetas = None
 
@@ -48,7 +46,7 @@ class MyRidgeRegression(MyClassifier):
             self.__objective_vals = None
 
             if algo == 'grad':
-                self.__graddescent()
+                self.__grad_descent()
             else:
                 raise Exception("algorithm <%s> is not available" % algo)
 

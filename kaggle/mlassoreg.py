@@ -3,36 +3,24 @@ import numpy as np
 
 # misc setup for readability
 norm = np.linalg.norm
-exp = np.exp
-log = np.log
-np.random.seed(1)
 
 
 class MyLASSORegression(MyClassifier):
-    def __init__(self, x_train, y_train, x_val=None, y_val=None,
-                 lamda=.01, max_iter=1000, cv_splits=1, expected_betas=None,
-                 log_queue=None, task=None, log_path=None):
+    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
+                 expected_betas=None, log_queue=None, task=None):
 
-        super().__init__(x_train, y_train, x_val, y_val,
-                         lamda=lamda, cv_splits=cv_splits,
-                         log_queue=log_queue, task=task, log_path=log_path)
+        super().__init__(x_train, y_train, x_val, y_val, parameters,
+                         log_queue=log_queue, task=task)
 
-        self.max_iter = max_iter
+        self.max_iter = parameters['max_iter']
 
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
-        self.__objective_vals = None
 
     # public methods
     def fit(self, algo='random'):
         while super().fit():
-            self.__betas = self.coef_
-
-            if len(self.__betas) == 0:
-                self.__betas = np.zeros(self._d)
-                self._set_betas(self.__betas)
-
-            self.__objective_vals = None
+            self.__betas = np.zeros(self._d)
 
             if algo == 'random':
                 self.__random_coordinate_descent()
@@ -117,7 +105,7 @@ class MyLASSORegression(MyClassifier):
     def __pick_coordinate(self):
         return np.random.randint(0, self._d, 1)[0]
 
-    def __random_coordinate_descent(self, idx=0, max_iter=None):
+    def __random_coordinate_descent(self, max_iter=None):
         if not max_iter:
             max_iter = self.max_iter
 
@@ -128,7 +116,6 @@ class MyLASSORegression(MyClassifier):
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
-                idx += 1
                 self.log_metrics([
                     t, j, self.__objective(),
                     self.__correct_beta_percentage(),
