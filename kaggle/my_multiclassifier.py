@@ -208,7 +208,6 @@ class MultiClassifier:
 
             else:
                 try:
-                    print(message)
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")
                 except Exception as e:

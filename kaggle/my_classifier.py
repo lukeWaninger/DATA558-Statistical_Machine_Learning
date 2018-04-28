@@ -206,10 +206,10 @@ class MyClassifier(ABC):
         else:
             return
 
+        print(row)
         if self.__log_queue is not None:
             self.__log_queue.put(row)
         else:
-            print(row)
             if self.__log_path is not None:
                 with open('%s%s.csv' % (self.__log_path, self.task), 'a+') as f:
                     f.writelines(row + '\n')
@@ -263,6 +263,7 @@ class MyClassifier(ABC):
             with open('%s%s.pk' % (path, self.task), 'wb') as f:
                 pickle.dump(dict_rep, f, pickle.HIGHEST_PROTOCOL)
 
+            print('%s [%s] written to disk' % (self.task, self.__parameters))
         except Exception as e:
             print('could not write %s to disk: %s' % (self.task, [str(a) for a in e.args]))
 
