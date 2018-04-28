@@ -1,6 +1,5 @@
 from kaggle.my_classifier import MyClassifier
 import numpy as np
-import tqdm
 
 # misc setup for readability
 norm = np.linalg.norm
