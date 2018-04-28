@@ -87,9 +87,7 @@ class MyLASSORegression(MyClassifier):
                         #self.__correct_beta_percentage(),
                         self.__beta_str()
                     ], include='reduced')
-            pbar.update(1)
             t += 1
-        pbar.close()
 
     def __compute_beta(self, j):
         n, a = self._n, self._param('alpha')
@@ -136,9 +134,10 @@ class MyLASSORegression(MyClassifier):
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
-                self.log_metrics([
-                    t, j, self.__objective(),
-                    #self.__correct_beta_percentage(),
-                    self.__beta_str()
-                ], include='reduced')
+                if self.__log:
+                    self.log_metrics([
+                        t, j, self.__objective(),
+                        #self.__correct_beta_percentage(),
+                        self.__beta_str()
+                    ], include='reduced')
             t += 1
