@@ -146,7 +146,7 @@ class MyLASSORegression(MyClassifier):
             self.__seen[j] = 0
             return False
 
-        elif self.__betas[j] == 0 and self.__seen[j] <= 2:
+        elif self.__betas[int(j)] == 0 and self.__seen[j] <= 2:
             self.__seen[j] += 1
             return False
 
