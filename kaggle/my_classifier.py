@@ -90,7 +90,6 @@ class TrainingSplit:
 class MyClassifier(ABC):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
                  preprocessor=None, task=None, log_path=None, log_queue=None):
-        self.log_path = log_path
         self.task = task
 
         self.__parameters = parameters
@@ -158,7 +157,9 @@ class MyClassifier(ABC):
         if self.__current_split == len(self.__cv_splits)-1:
             return False
 
-        self.write_to_disk(self.__parameters['log_path'])
+        if self.__log_path is not None:
+            self.write_to_disk(self.__log_path)
+
         self.__current_split += 1
         return True
 
@@ -181,21 +182,25 @@ class MyClassifier(ABC):
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
     def log_metrics(self, args, prediction_func=None, include='all'):
+        split = self.__cv_splits[self.__current_split]
+        pstr = ','.join([v for k, v in split.parameters])
+
         row = '%s,p%s,%s,%s,' % \
-              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + \
-              str(self.__cv_splits[self.__current_split].parameters)
+              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
 
-        if include == 'all':
+        if include in ['all', 'reduced']:
             train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
-            val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+            val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
 
-            self.__cv_splits[self.__current_split].train_metrics = train_metrics
-            self.__cv_splits[self.__current_split].val_metrics = val_metrics
+            split.train_metrics = train_metrics
+            split.val_metrics = val_metrics
 
-            row += str(train_metrics) + ',' + str(val_metrics) + ',' + \
-                  ','.join([str(a) for a in args])
+            if include == 'all':
+                row += '%s,%s,%s' % (str(train_metrics), str(val_metrics), ','.join([str(a) for a in args]))
+            else:
+                row += '%s,%s,%s' % (train_metrics.error, val_metrics.error, ','.join([str(a) for a in args]))
 
-        elif include == 'reduced':
+        elif include == 'minimal':
             row += ','.join([str(a) for a in args])
 
         else:
@@ -205,8 +210,8 @@ class MyClassifier(ABC):
             self.__log_queue.put(row)
         else:
             print(row)
-            if self.log_path is not None:
-                with open(self.log_path, 'a+') as f:
+            if self.__log_path is not None:
+                with open('%s%s.csv' % (self.__log_path, self.task), 'a+') as f:
                     f.writelines(row + '\n')
 
     @abstractmethod
@@ -246,7 +251,7 @@ class MyClassifier(ABC):
 
         return self
 
-    def write_to_disk(self, path):
+    def write_to_disk(self, path=None):
         try:
             dict_rep = {
                 'task':   self.task,

@@ -11,7 +11,7 @@ import time
 
 class MultiClassifier:
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 classification_method='ovr', n_jobs=-1):
+                 classification_method='ovr', n_jobs=-1, log_path=''):
 
         cpu_count = multiprocessing.cpu_count()
         if n_jobs == -1 or n_jobs >= cpu_count:
@@ -19,6 +19,7 @@ class MultiClassifier:
         else:
             self.__available_procs = n_jobs
 
+        self.__log_path = log_path
         self.__parameters = parameters
         self.__x = x_train
         self.__x_val = x_val
@@ -193,10 +194,8 @@ class MultiClassifier:
         start = time.time()
 
         # /mnt/hgfs/descent_logs/
-        path = 'descent_log_%s_%s.csv' % (self.task, str(int(time.time())))
-        header = 'timestamp,pid,task,split,test_acc,test_err,test_precision,test_recall,test_f1,' \
-                 'test_fpr,test_tpr,test_specificity,val_acc,val_err,val_precision,' \
-                 'val_recall,val_f1,val_fpr,val_tpr,val_specificity\n'
+        path = '%s/training_log_%s_%s.csv' % (self.__log_path, self.task, str(int(time.time())))
+        header = 'timestamp,pid,task,split,train_acc,train_err,val_acc,val_err\n'
 
         with open(path, 'w+') as f:
             f.writelines(header)

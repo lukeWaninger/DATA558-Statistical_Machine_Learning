@@ -12,9 +12,10 @@ class MyLASSORegression(MyClassifier):
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
                          x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
 
-        self.__log = log
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
+        self.__log = log
+        self.__seen = dict()
 
     def _simon_says_fit(self):
         return self.fit()
@@ -23,6 +24,7 @@ class MyLASSORegression(MyClassifier):
     def fit(self):
         while super().fit():
             self.__betas = np.zeros(self._d)
+            self.__seen = dict()
 
             algo = self._param('algo')
             if algo == 'random':
@@ -70,21 +72,20 @@ class MyLASSORegression(MyClassifier):
             for i in range(self._d):
                 j = idx % self._d
 
-                if self.__betas[j] == 0 and j in seen:
+                if self.__beta_complete(j):
                     continue
 
-                seen.append(j)
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
                 idx += 1
 
-                if self.__log:
-                    self.log_metrics([
-                        t, j, self.__objective(),
-                        #self.__correct_beta_percentage(),
-                        self.__beta_str()
-                    ], include='all')
+            if self.__log:
+                self.log_metrics([
+                    t, self.__objective(),
+                    #self.__correct_beta_percentage(),
+                    #self.__beta_str()
+                ], include='reduced')
             t += 1
 
     def __compute_beta(self, j):
@@ -120,15 +121,14 @@ class MyLASSORegression(MyClassifier):
         if not max_iter:
             max_iter = self._param('max_iter')
 
-        t, seen = 0, []
+        t = 0
         while t < max_iter:
             for i in range(self._d):
                 j = self.__pick_coordinate()
 
-                if self.__betas[j] == 0 and j in seen:
+                if self.__beta_complete(j):
                     continue
 
-                seen.append(j)
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
@@ -136,6 +136,19 @@ class MyLASSORegression(MyClassifier):
                 self.log_metrics([
                     t, self.__objective(),
                     #self.__correct_beta_percentage(),
-                    self.__beta_str()
-                ], include='all')
+                    #self.__beta_str()
+                ], include='reduced')
             t += 1
+
+    def __beta_complete(self, j):
+        j = str(j)
+        if j not in self.__seen:
+            self.__seen[j] = 0
+            return False
+
+        elif self.__seen[j] == 1:
+            self.__seen[j] += 1
+            return False
+
+        else:
+            return True

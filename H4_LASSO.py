@@ -2,17 +2,15 @@ from kaggle.mlassoreg import MyLASSORegression
 from kaggle.my_multiclassifier import MultiClassifier
 import numpy as np
 import os
-import re
 import pandas as pd
+import re
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
-import sys
 
-
-# EXERCISE 1
+#
+# # EXERCISE 1
 # hitters = pd.read_csv('https://raw.githubusercontent.com/selva86/datasets/master/Hitters.csv',
 #                       sep=',', header=0).dropna()
 # x = pd.get_dummies(hitters, drop_first=True)
@@ -38,19 +36,26 @@ import sys
 #     os.remove(log_path)
 #
 # cyclic = MyLASSORegression(x_train, y_train, x_test, y_test,
-#                            lamda=gscv.best_estimator_.alpha,
-#                            max_iter=1000,
-#                            task='cyclic',
-#                            expected_betas=cv.coef_,
-#                            log_path=log_path).fit(algo='cyclic')
+#                            {
+#                                'alpha': [gscv.best_estimator_.alpha],
+#                                'max_iter': [1000],
+#                                'algo': ['cyclic'],
+#                                'log_path': ''
+#                            },
+#                            expected_betas=cv.coef_
+#                            ).fit()
 # random = MyLASSORegression(x_train, y_train, x_test, y_test,
-#                            lamda=gscv.best_estimator_.alpha,
-#                            task='random',
-#                            max_iter=1000,
-#                            expected_betas=cv.coef_,
-#                            log_path=log_path).fit(algo='random')
-
-# EXERCISE 2
+#                            {
+#                                'alpha': [gscv.best_estimator_.alpha],
+#                                'max_iter': [1000],
+#                                'algo': ['random'],
+#                                'log_path': ''
+#                            },
+#                            expected_betas=cv.coef_
+#                            ).fit()
+#
+#
+# # EXERCISE 2
 # def ex2(x, y):
 #     x = np.array([[xi**p for p in range(10)] for xi in x])
 #     x = StandardScaler().fit_transform(x)
@@ -78,7 +83,7 @@ import sys
 # b = [0, -.5, .5, .75, -.75, .25, -.25, .82]
 # y = np.array([b[0] + b[6]*xi**7 for xi in x])
 # ex2(x, y)
-
+#
 
 # EXERCISE 3
 p1 = re.sub(r'(homework)|(kaggle)|(data)+', '', os.getcwd()) + '/kaggle/data/'
@@ -89,16 +94,15 @@ x_val = np.load(p1 + 'val_features.npy')
 y_val = np.load(p1 + 'val_labels.npy')
 x_test = np.load(p1 + 'test_features.npy')
 
-num_splits = 5
+num_splits = 6
 parameters = {
     'classifiers': [
         {
             'type': 'LASSO',
             'parameters': {
                 'alpha': [2**i+0.01 for i in range(num_splits)],
-                'max_iter': [200],
-                'algo': ['random'],
-                'log_path': p1 + 'logs/'
+                'max_iter': [500],
+                'algo': ['random']
             }
         }
     ],
