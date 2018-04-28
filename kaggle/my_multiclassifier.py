@@ -193,7 +193,7 @@ class MultiClassifier:
         start = time.time()
 
         # /mnt/hgfs/descent_logs/
-        path = '%s/training_log_%s_%s.csv' % (self.__log_path, self.task, str(int(time.time())))
+        path = '%s%s/training_log_%s_%s.csv' % (os.getcwd(), self.__log_path, self.task, str(int(time.time())))
         header = 'timestamp,pid,task,split,train_acc,train_err,val_acc,val_err\n'
 
         with open(path, 'w+') as f:
