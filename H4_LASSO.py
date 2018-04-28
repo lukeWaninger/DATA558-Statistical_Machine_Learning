@@ -95,7 +95,7 @@ parameters = {
         {
             'type': 'LASSO',
             'parameters': {
-                'alpha': np.linspace(0.01, 1., num_splits),
+                'alpha': [2**i+0.01 for i in range(num_splits)],
                 'max_iter': [1000],
                 'algo': ['cyclic']
             }
@@ -107,4 +107,3 @@ clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
                       classification_method='all_pairs')
 clf.fit()
 clf.output_predictions(x_test)
-

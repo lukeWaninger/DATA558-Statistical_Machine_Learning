@@ -67,10 +67,15 @@ class MyLASSORegression(MyClassifier):
         if not max_iter:
             max_iter = self._param('max_iter')
 
-        t, pbar = 0, tqdm.tqdm(total=max_iter, desc=self.task)
+        t, seen = 0, []
         while t < max_iter:
             for i in range(self._d):
                 j = idx % self._d
+
+                if self.__betas[j] == 0 and j in seen:
+                    continue
+
+                seen.append(j)
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
@@ -119,10 +124,15 @@ class MyLASSORegression(MyClassifier):
         if not max_iter:
             max_iter = self._param('max_iter')
 
-        t, pbar = 0, tqdm.tqdm(total=max_iter, desc=self.task)
+        t, seen = 0, []
         while t < max_iter:
             for i in range(self._d):
                 j = self.__pick_coordinate()
+
+                if self.__betas[j] == 0 and j in seen:
+                    continue
+
+                seen.append(j)
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
@@ -131,6 +141,4 @@ class MyLASSORegression(MyClassifier):
                     #self.__correct_beta_percentage(),
                     self.__beta_str()
                 ], include='reduced')
-            pbar.update(1)
             t += 1
-        pbar.close()
