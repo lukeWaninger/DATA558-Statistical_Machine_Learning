@@ -96,8 +96,9 @@ parameters = {
             'type': 'LASSO',
             'parameters': {
                 'alpha': [2**i+0.01 for i in range(num_splits)],
-                'max_iter': [1000],
-                'algo': ['random']
+                'max_iter': [200],
+                'algo': ['random'],
+                'log_path': p1 + 'logs/'
             }
         }
     ],

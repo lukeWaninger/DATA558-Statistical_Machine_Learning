@@ -66,12 +66,12 @@ class TrainingSplit:
         return {
             'n': self.n,
             'd': self.d,
-            'train_idx':   self.train_idx,
-            'val_idx':     self.val_idx,
+            'train_idx':   self.train_idx if not None else [],
+            'val_idx':     self.val_idx if not None else [],
             'parameters':  self.parameters,
             'betas': self.betas,
-            'train_metrics': self.train_metrics.as_dict(),
-            'val_metrics':   self.val_metrics.as_dict()
+            'train_metrics': self.train_metrics.as_dict() if self.train_metrics is not None else 'none',
+            'val_metrics':   self.val_metrics.as_dict() if self.val_metrics is not None else 'none'
         }
 
     def from_dict(self, data):
@@ -80,7 +80,7 @@ class TrainingSplit:
         self.train_metrics = MetricSet().from_dict(data['train_metrics'])
         self.val_metrics   = MetricSet().from_dict(data['val_metrics'])
         self.n = data['n']
-        self.parameters = data['lamda']
+        self.parameters = data['parameters']
         self.train_idx  = data['train_idx']
         self.val_idx    = data['val_idx']
 
@@ -144,7 +144,7 @@ class MyClassifier(ABC):
 
     # protected methods
     @abstractmethod
-    def _simon_says_fit(self, logSS):
+    def _simon_says_fit(self):
         pass
 
     def _param(self, parameter):
@@ -158,6 +158,7 @@ class MyClassifier(ABC):
         if self.__current_split == len(self.__cv_splits)-1:
             return False
 
+        self.write_to_disk(self.__parameters['log_path'])
         self.__current_split += 1
         return True
 
@@ -229,7 +230,7 @@ class MyClassifier(ABC):
         self.__cv_splits.append(best_split)
 
         print('training with all features ' + str(best_split.parameters))
-        self._simon_says_fit(log=True)
+        self._simon_says_fit()
 
         return self.predict(x, beta)
 

@@ -7,7 +7,7 @@ norm = np.linalg.norm
 
 class MyLASSORegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 expected_betas=None, log_queue=None, task=None, log=False):
+                 expected_betas=None, log_queue=None, task=None, log=True):
 
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
                          x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
@@ -16,8 +16,7 @@ class MyLASSORegression(MyClassifier):
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
 
-    def _simon_says_fit(self, log):
-        self.__log = log
+    def _simon_says_fit(self):
         return self.fit()
 
     # public methods
@@ -85,7 +84,7 @@ class MyLASSORegression(MyClassifier):
                         t, j, self.__objective(),
                         #self.__correct_beta_percentage(),
                         self.__beta_str()
-                    ], include='reduced')
+                    ], include='all')
             t += 1
 
     def __compute_beta(self, j):
@@ -133,10 +132,10 @@ class MyLASSORegression(MyClassifier):
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
-                if self.__log:
-                    self.log_metrics([
-                        t, j, self.__objective(),
-                        #self.__correct_beta_percentage(),
-                        self.__beta_str()
-                    ], include='reduced')
+            if self.__log:
+                self.log_metrics([
+                    t, self.__objective(),
+                    #self.__correct_beta_percentage(),
+                    self.__beta_str()
+                ], include='all')
             t += 1
