@@ -94,7 +94,7 @@ x_val = np.load(p1 + 'val_features.npy')
 y_val = np.load(p1 + 'val_labels.npy')
 x_test = np.load(p1 + 'test_features.npy')
 
-num_splits = 6
+num_splits = 5
 parameters = {
     'classifiers': [
         {
