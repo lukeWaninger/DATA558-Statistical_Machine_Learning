@@ -97,7 +97,7 @@ parameters = {
             'parameters': {
                 'alpha': [2**i+0.01 for i in range(num_splits)],
                 'max_iter': [1000],
-                'algo': ['cyclic']
+                'algo': ['random']
             }
         }
     ],

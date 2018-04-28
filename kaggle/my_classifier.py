@@ -144,7 +144,7 @@ class MyClassifier(ABC):
 
     # protected methods
     @abstractmethod
-    def _simon_says_fit(self, log):
+    def _simon_says_fit(self, logSS):
         pass
 
     def _param(self, parameter):
