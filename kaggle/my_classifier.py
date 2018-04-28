@@ -204,6 +204,7 @@ class MyClassifier(ABC):
         if self.__log_queue is not None:
             self.__log_queue.put(row)
         else:
+            print(row)
             if self.log_path is not None:
                 with open(self.log_path, 'a+') as f:
                     f.writelines(row + '\n')
