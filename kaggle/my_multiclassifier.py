@@ -19,6 +19,7 @@ class MultiClassifier:
         else:
             self.__available_procs = n_jobs
 
+        self.__classification_method = classification_method
         self.__log_path = log_path
         self.__parameters = parameters
         self.__x = x_train
@@ -30,10 +31,8 @@ class MultiClassifier:
         self.__log_queue = self.__manager.Queue()
         self.__snd, self.__rcv = multiprocessing.Pipe()
 
-        self.__classification_method = classification_method
-
-        self.cvs = self.__build_classifiers()
         self.task = classification_method
+        self.cvs = self.__build_classifiers()
 
     def fit(self):
         log_manager = multiprocessing.Process(target=self.__log_manager,
@@ -209,6 +208,7 @@ class MultiClassifier:
 
             else:
                 try:
+                    print(message)
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")
                 except Exception as e:
