@@ -110,6 +110,7 @@ parameters = {
 clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
                       x_val=x_val, y_val=y_val, n_jobs=1,
                       classification_method='all_pairs',
+                      log_path='/mnt/hgfs/descent_logs/',
                       logging_level='reduced')
 clf.fit()
 clf.output_predictions(x_test)
