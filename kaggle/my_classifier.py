@@ -187,7 +187,7 @@ class MyClassifier(ABC):
             return
 
         split = self.__cv_splits[self.__current_split]
-        pstr = ','.join([v for k, v in split.parameters.items()])
+        pstr = ','.join([str(v) for k, v in split.parameters.items()])
         arg_str = ','.join([str(a) for a in args])
 
         row = '%s,p%s,%s,%s,' % \
@@ -201,9 +201,9 @@ class MyClassifier(ABC):
             split.val_metrics = val_metrics
 
             if self.__logging_level == 'all':
-                row += '%s,%s,%s' % (str(train_metrics), str(val_metrics), arg_str)
+                row += ',%s,%s,%s' % (str(train_metrics), str(val_metrics), arg_str)
             else:
-                row += '%s,%s,%s' % (train_metrics.error, val_metrics.error, arg_str)
+                row += ',%s,%s,%s' % (train_metrics.error, val_metrics.error, arg_str)
 
         elif self.__logging_level == 'minimal':
             row += arg_str
