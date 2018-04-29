@@ -11,7 +11,7 @@ import time
 
 class MultiClassifier:
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 classification_method='ovr', n_jobs=-1, log_path=''):
+                 classification_method='ovr', n_jobs=-1, log_path='', logging_level='none'):
 
         cpu_count = multiprocessing.cpu_count()
         if n_jobs == -1 or n_jobs >= cpu_count:
@@ -21,6 +21,7 @@ class MultiClassifier:
 
         self.__classification_method = classification_method
         self.__log_path = log_path
+        self.__logging_level = logging_level
         self.__parameters = parameters
         self.__x = x_train
         self.__x_val = x_val
@@ -156,6 +157,7 @@ class MultiClassifier:
                     classifier = MyLASSORegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                    parameters=cv['parameters'],
                                                    task=task + " [LASSO regression]",
+                                                   logging_level=self.__logging_level,
                                                    log_queue=self.__log_queue)
 
                 elif cv_type == 'ridge':
@@ -194,10 +196,6 @@ class MultiClassifier:
 
         # /mnt/hgfs/descent_logs/
         path = '%s%s/training_log_%s_%s.csv' % (os.getcwd(), self.__log_path, self.task, str(int(time.time())))
-        header = 'timestamp,pid,task,split,train_acc,train_err,val_acc,val_err\n'
-
-        with open(path, 'w+') as f:
-            f.writelines(header)
 
         running = len(self.cvs)
         while True:

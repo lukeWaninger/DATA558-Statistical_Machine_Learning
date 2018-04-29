@@ -89,7 +89,7 @@ class TrainingSplit:
 
 class MyClassifier(ABC):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 preprocessor=None, task=None, log_path=None, log_queue=None):
+                 task=None, log_queue=None, logging_level='none'):
         self.task = task
 
         self.__parameters = parameters
@@ -98,6 +98,7 @@ class MyClassifier(ABC):
 
         self.__current_split = -1
 
+        self.__logging_level = logging_level
         try:
             self.__log_path = parameters['log_path']
         except:
@@ -181,7 +182,10 @@ class MyClassifier(ABC):
         except Exception as e:
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
-    def log_metrics(self, args, prediction_func=None, include='all'):
+    def log_metrics(self, args, prediction_func=None):
+        if self.__logging_level == 'none':
+            return
+
         split = self.__cv_splits[self.__current_split]
         pstr = ','.join([v for k, v in split.parameters.items()])
         arg_str = ','.join([str(a) for a in args])
@@ -189,19 +193,19 @@ class MyClassifier(ABC):
         row = '%s,p%s,%s,%s,' % \
               (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
 
-        if include in ['all', 'reduced']:
+        if self.__logging_level in ['all', 'reduced']:
             train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
             val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
 
             split.train_metrics = train_metrics
             split.val_metrics = val_metrics
 
-            if include == 'all':
+            if self.__logging_level == 'all':
                 row += '%s,%s,%s' % (str(train_metrics), str(val_metrics), arg_str)
             else:
                 row += '%s,%s,%s' % (train_metrics.error, val_metrics.error, arg_str)
 
-        elif include == 'minimal':
+        elif self.__logging_level == 'minimal':
             row += arg_str
 
         else:
