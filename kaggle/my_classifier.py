@@ -184,6 +184,7 @@ class MyClassifier(ABC):
     def log_metrics(self, args, prediction_func=None, include='all'):
         split = self.__cv_splits[self.__current_split]
         pstr = ','.join([v for k, v in split.parameters.items()])
+        arg_str = ','.join([str(a) for a in args])
 
         row = '%s,p%s,%s,%s,' % \
               (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
@@ -196,12 +197,12 @@ class MyClassifier(ABC):
             split.val_metrics = val_metrics
 
             if include == 'all':
-                row += '%s,%s,%s' % (str(train_metrics), str(val_metrics), ','.join([str(a) for a in args]))
+                row += '%s,%s,%s' % (str(train_metrics), str(val_metrics), arg_str)
             else:
-                row += '%s,%s,%s' % (train_metrics.error, val_metrics.error, ','.join([str(a) for a in args]))
+                row += '%s,%s,%s' % (train_metrics.error, val_metrics.error, arg_str)
 
         elif include == 'minimal':
-            row += ','.join([str(a) for a in args])
+            row += arg_str
 
         else:
             return
