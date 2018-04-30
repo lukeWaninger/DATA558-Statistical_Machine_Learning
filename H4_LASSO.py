@@ -100,7 +100,7 @@ parameters = {
         {
             'type': 'LASSO',
             'parameters': {
-                'alpha': [2**i+0.01 for i in range(num_splits)],
+                'alpha': [2**i+0.01 for i in range(2, 2+num_splits)],
                 'max_iter': [500],
                 'algo': ['random']
             }
@@ -114,7 +114,7 @@ x_val   = scalar.transform(x_val)
 x_test  = scalar.transform(x_test)
 
 clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
-                      x_val=x_val, y_val=y_val, n_jobs=1,
+                      x_val=x_val, y_val=y_val, n_jobs=4,
                       classification_method='all_pairs',
                       log_path='/mnt/hgfs/descent_logs/',
                       logging_level='reduced')

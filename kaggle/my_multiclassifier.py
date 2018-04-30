@@ -194,7 +194,7 @@ class MultiClassifier:
     def __log_manager(self, log_queue, conn):
         start = time.time()
 
-        path = '%s%s/training_log_%s_%s.csv' % (os.getcwd(), self.__log_path, self.task, str(int(time.time())))
+        path = '%s/training_log_%s_%s.csv' % (self.__log_path, self.task, str(int(time.time())))
 
         running = len(self.cvs)
         while True:

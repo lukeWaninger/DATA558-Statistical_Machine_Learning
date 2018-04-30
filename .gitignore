@@ -6,3 +6,5 @@
 *.gz
 *.npy
 *.pk
+
+settings.py
