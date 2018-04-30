@@ -7,7 +7,7 @@ import re
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 #
 # # EXERCISE 1
@@ -107,6 +107,12 @@ parameters = {
         }
     ],
 }
+
+scalar  = MinMaxScaler().fit(x_train)
+x_train = scalar.transform(x_train)
+x_val   = scalar.transform(x_val)
+x_test  = scalar.transform(x_test)
+
 clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
                       x_val=x_val, y_val=y_val, n_jobs=1,
                       classification_method='all_pairs',

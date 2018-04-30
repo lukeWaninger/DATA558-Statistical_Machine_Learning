@@ -63,6 +63,22 @@ class MyLASSORegression(MyClassifier):
     def __correct_beta_percentage(self):
         return np.sum([1 for b, be in zip(self.__betas, self.__exp_betas) if np.isclose(b, be)])/self._d
 
+    def __compute_beta(self, j):
+        n, a = self._n, self._param('alpha')
+        b = np.concatenate((self.__betas[:j], self.__betas[j+1:]))
+        x = np.concatenate((self._x[:, :j], self._x[:, j+1:]), axis=1)
+
+        r = self._y - x @ b
+        z = np.sum(self._x[:, j]**2)
+
+        switch = 2/self._n * norm(r)
+
+        if abs(switch) >= a and z != 0:
+            bj = (-1*np.sign(switch)*a + (2/n)*self._x[:, j].T@r)/((2/n)*z)
+        else:
+            bj = 0
+        return bj
+
     def __cyclic_coordinate_descent(self, idx=0, max_iter=None):
         if not max_iter:
             max_iter = self._param('max_iter')
@@ -83,22 +99,6 @@ class MyLASSORegression(MyClassifier):
             self.log_metrics([t, self.__objective()])
             t += 1
 
-    def __compute_beta(self, j):
-        n, a = self._n, self._param('alpha')
-        b = np.concatenate((self.__betas[:j], self.__betas[j+1:]))
-        x = np.concatenate((self._x[:, :j], self._x[:, j+1:]), axis=1)
-
-        r = self._y - x @ b
-        z = np.sum(self._x[:, j]**2)
-
-        switch = 2/self._n * norm(r)
-
-        if abs(switch) >= a and z != 0:
-            bj = (-1*np.sign(switch)*a + (2/n)*self._x[:, j].T@r)/((2/n)*z)
-        else:
-            bj = 0
-        return bj
-
     @staticmethod
     def __min_n1d1(x, y, l, b):
         return norm((y-x*b)) + l*abs(b)
@@ -107,7 +107,7 @@ class MyLASSORegression(MyClassifier):
         x, y, n = self._x, self._y, self._n
         a, b = self._param('alpha'), self.__betas
 
-        return (1/n)*norm(y-x @ b)**2 + a*sum(abs(b))
+        return (1/n)*norm(y-x @ b)**2 + a*np.sum(np.abs(b))
 
     def __pick_coordinate(self):
         return np.random.randint(0, self._d, 1)[0]
