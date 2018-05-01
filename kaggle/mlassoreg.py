@@ -141,3 +141,6 @@ class MyLASSORegression(MyClassifier):
 
         else:
             self.__available_idx.remove(int(j))
+
+            if len(self.__available_idx) == 0:
+                self.__available_idx = list(np.arange(self._d))
