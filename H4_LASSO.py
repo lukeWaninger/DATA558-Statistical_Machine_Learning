@@ -94,15 +94,17 @@ x_val = np.load(p1 + 'val_features.npy')
 y_val = np.load(p1 + 'val_labels.npy')
 x_test = np.load(p1 + 'test_features.npy')
 
+log_path ='/mnt/hgfs/descent_logs/'
 num_splits = 5
 parameters = {
     'classifiers': [
         {
             'type': 'LASSO',
             'parameters': {
-                'alpha': [2**i+0.01 for i in range(2, 2+num_splits)],
-                'max_iter': [500],
-                'algo': ['random']
+                'alpha': [2**i*1.0 for i in range(2, 2+num_splits)],
+                'max_iter': [1000],
+                'algo': ['random'],
+                'log_path': log_path
             }
         }
     ],
@@ -114,9 +116,9 @@ x_val   = scalar.transform(x_val)
 x_test  = scalar.transform(x_test)
 
 clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
-                      x_val=x_val, y_val=y_val, n_jobs=4,
+                      x_val=x_val, y_val=y_val, n_jobs=1,
                       classification_method='all_pairs',
-                      log_path='/mnt/hgfs/descent_logs/',
+                      log_path=log_path,
                       logging_level='reduced')
 clf.fit()
 clf.output_predictions(x_test)

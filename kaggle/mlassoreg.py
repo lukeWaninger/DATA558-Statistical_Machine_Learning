@@ -16,6 +16,7 @@ class MyLASSORegression(MyClassifier):
         self.__betas = self.coef_
         self.__exp_betas = expected_betas
         self.__seen = dict()
+        self.__available_idx = []
 
     def _simon_says_fit(self):
         return self.fit()
@@ -25,6 +26,7 @@ class MyLASSORegression(MyClassifier):
         while super().fit():
             self.__betas = np.zeros(self._d)
             self.__seen = dict()
+            self.__available_idx = list(np.arange(self._d))
 
             algo = self._param('algo')
             if algo == 'random':
@@ -88,14 +90,11 @@ class MyLASSORegression(MyClassifier):
             for i in range(self._d):
                 j = idx % self._d
 
-                if self.__beta_complete(j):
-                    continue
-
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
                 idx += 1
-
+                self.__update_available(j)
             self.log_metrics([t, self.__objective()])
             t += 1
 
@@ -110,7 +109,7 @@ class MyLASSORegression(MyClassifier):
         return (1/n)*norm(y-x @ b)**2 + a*np.sum(np.abs(b))
 
     def __pick_coordinate(self):
-        return np.random.randint(0, self._d, 1)[0]
+        return np.random.choice(self.__available_idx, 1)[0]
 
     def __random_coordinate_descent(self, max_iter=None):
         if not max_iter:
@@ -121,24 +120,24 @@ class MyLASSORegression(MyClassifier):
             for i in range(self._d):
                 j = self.__pick_coordinate()
 
-                if self.__beta_complete(j):
-                    continue
-
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
+                self.__update_available(j)
             self.log_metrics([t, self.__objective()])
             t += 1
 
-    def __beta_complete(self, j):
+    def __update_available(self, j):
+        if self.__betas[j] != 0:
+            return
+
         j = str(j)
         if j not in self.__seen:
             self.__seen[j] = 0
-            return False
 
-        elif self.__betas[int(j)] == 0 and self.__seen[j] <= 2:
+        elif self.__seen[j] <= 3:
             self.__seen[j] += 1
             return False
 
         else:
-            return True
+            self.__available_idx.remove(int(j))
