@@ -123,13 +123,15 @@ class MyLASSORegression(MyClassifier):
                 b0 = self.__compute_beta(j)
                 self.__betas[j] = b0
 
-                self.__update_available(j)
+                if self.__update_available(j):
+                    break
+
             self.log_metrics([t, self.__objective()])
             t += 1
 
     def __update_available(self, j):
         if self.__betas[j] != 0:
-            return
+            return False
 
         j = str(j)
         if j not in self.__seen:
@@ -143,4 +145,4 @@ class MyLASSORegression(MyClassifier):
             self.__available_idx.remove(int(j))
 
             if len(self.__available_idx) == 0:
-                self.__available_idx = list(np.arange(self._d))
+                return True 

@@ -95,7 +95,7 @@ y_val = np.load(p1 + 'val_labels.npy')
 x_test = np.load(p1 + 'test_features.npy')
 
 log_path ='/mnt/hgfs/descent_logs/'
-num_splits = 5
+num_splits = 3
 parameters = {
     'classifiers': [
         {
@@ -110,13 +110,13 @@ parameters = {
     ],
 }
 
-scalar  = MinMaxScaler().fit(x_train)
+scalar  = StandardScaler().fit(x_train)
 x_train = scalar.transform(x_train)
 x_val   = scalar.transform(x_val)
 x_test  = scalar.transform(x_test)
 
 clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
-                      x_val=x_val, y_val=y_val, n_jobs=1,
+                      x_val=x_val, y_val=y_val, n_jobs=5,
                       classification_method='all_pairs',
                       log_path=log_path,
                       logging_level='reduced')
