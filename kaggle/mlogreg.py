@@ -9,10 +9,13 @@ log = np.log
 
 class MyLogisticRegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 log_queue=None, task=None):
+                 log_queue=None, logging_level='none', log_path='', task=None,
+                 dict_rep=None):
 
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
-                         x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
+                         x_val=x_val, y_val=y_val, log_queue=log_queue,
+                         logging_level=logging_level, log_path=log_path, task=task,
+                         dict_rep=dict_rep)
 
         self.__betas = self.coef_
         self.__objective_vals = None
@@ -142,7 +145,7 @@ class MyLogisticRegression(MyClassifier):
             theta = b1 + (i/(i+3))*(b1-b0)
             i += 1
 
-            self.log_metrics([i, t, norm(grad), norm(b0), self.__objective(b0)])
+            self.log_metrics([i, t, self.__objective(b0), norm(grad)])
 
     def __objective(self, beta):
         x, y, n, l = self._x, self._y, self._n, self._param('lambda')

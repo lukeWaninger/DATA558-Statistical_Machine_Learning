@@ -11,10 +11,13 @@ rand.seed(42)
 
 class MyRidgeRegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 log_queue=None, task=None):
+                 log_queue=None, logging_level='none', log_path='', task=None,
+                 dict_rep=None):
 
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
-                         x_val=x_val, y_val=y_val, log_queue=log_queue, task=task)
+                         x_val=x_val, y_val=y_val, log_queue=log_queue,
+                         logging_level=logging_level, log_path=log_path, task=task,
+                         dict_rep=dict_rep)
 
         self.__betas = self.coef_
         self.__objective_vals = None
@@ -44,12 +47,7 @@ class MyRidgeRegression(MyClassifier):
                 self._set_betas(self.__betas[0])
 
             self.__objective_vals = None
-
-            algo = self._param('algo')
-            if algo == 'grad':
-                self.__grad_descent()
-            else:
-                raise Exception("algorithm <%s> is not available" % algo)
+            self.__grad_descent()
 
             self._set_betas(self.__betas[-1])
         return self

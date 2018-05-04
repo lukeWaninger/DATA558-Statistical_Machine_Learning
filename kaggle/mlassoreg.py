@@ -7,11 +7,12 @@ norm = np.linalg.norm
 
 class MyLASSORegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 log_queue=None, logging_level='none', log_path='', task=None):
+                 log_queue=None, logging_level='none', log_path='', task=None,
+                 dict_rep=None):
 
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
                          x_val=x_val, y_val=y_val, log_queue=log_queue, log_path=log_path,
-                         logging_level=logging_level, task=task)
+                         logging_level=logging_level, task=task, dict_rep=dict_rep)
 
         self.__betas = self.coef_
         self.__seen = dict()
@@ -60,9 +61,6 @@ class MyLASSORegression(MyClassifier):
 
     def __beta_str(self):
         return ','.join([str(b) for b in self.__betas])
-
-    def __correct_beta_percentage(self):
-        return np.sum([1 for b, be in zip(self.__betas, self.__exp_betas) if np.isclose(b, be)])/self._d
 
     def __compute_beta(self, j):
         n, a = self._n, self._param('alpha')

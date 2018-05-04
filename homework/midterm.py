@@ -16,22 +16,45 @@ log_path ='/mnt/hgfs/descent_logs/'
 num_splits = 6
 parameters = {
     'classifiers': [
+        {
+            'type': 'hinge',
+            'parameters': {
+                'lambda': list(np.linspace(0.0001, 0.01, 5)),
+                'eta': [.001],
+                'init_method': ['zeros'],
+            }
+        },
         # {
-        #     'type': 'hinge',
+        #     'type': 'lasso',
         #     'parameters': {
-        #         'lambda': list(np.linspace(0.0001, 0.01, 5)),
-        #         'eta': [.001],
-        #         'init_method': ['zeros'],
+        #         'alpha': [0.25, 0.5, 2.0, 4.0],
+        #         'max_iter': [1000],
+        #         'algo': ['random']
         #     }
         # },
-        {
-            'type': 'lasso',
-            'parameters': {
-                'alpha': [0.01, 0.1, 2.0, 4.0],
-                'max_iter': [1000],
-                'algo': ['random']
-            }
-        }
+        # {
+        #     'type': 'ridge',
+        #     'parameters': {
+        #         'init_method': ['zeros'],
+        #         'lambda': [10**-i for i in range(5)],
+        #         'eta': [1.],
+        #         'max_iter': [500]
+        #     }
+        # },
+        # {
+        #     'type': 'logistic',
+        #     'parameters': {
+        #         'init_method': ['zeros'],
+        #         'lambda': [0.01, 0.1],
+        #         'eps': [0.001],
+        #         'max_iter': [500],
+        #         'algo': ['fgrad'],
+        #         'alpha': [0.5],
+        #         'eta': [1.],
+        #         't_eta': [0.5],
+        #         'bt_max_iter': [50]
+        #     }
+        # }
     ],
 }
 

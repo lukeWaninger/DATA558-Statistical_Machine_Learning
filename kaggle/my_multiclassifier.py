@@ -73,7 +73,23 @@ class MultiClassifier:
                 cv_d = MyL2Hinge(x_train=None, y_train=None, parameters=None,
                                  dict_rep=cv_d)
 
-            self.cvs.append(cv_d)
+            elif 'lasso' in cv_d['task']:
+                cv_d = MyLASSORegression(x_train=None, y_train=None, parameters=None,
+                                         dict_rep=cv_d)
+
+            elif 'logistic' in cv_d['task']:
+                cv_d = MyLogisticRegression(x_train=None, y_train=None, parameters=None,
+                                            dict_rep=cv_d)
+
+            elif 'ridge' in cv_d['task']:
+                cv_d = MyRidgeRegression(x_train=None, y_train=None, parameters=None,
+                                         dict_rep=cv_d)
+
+            else:
+                cv_d = None
+
+            if cv_d is not None:
+                self.cvs.append(cv_d)
 
         log_manager.terminate()
         return self
@@ -167,9 +183,10 @@ class MultiClassifier:
                     classifier = MyLogisticRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                       parameters=cv['parameters'],
                                                       task=task + " [logistic_regression]",
+                                                      logging_level=self.__logging_level,
                                                       log_queue=self.__log_queue)
 
-                elif cv_type == 'LASSO':
+                elif cv_type == 'lasso':
                     classifier = MyLASSORegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                    parameters=cv['parameters'],
                                                    task=task + " [LASSO_regression]",
@@ -180,6 +197,7 @@ class MultiClassifier:
                     classifier = MyRidgeRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                    parameters=cv['parameters'],
                                                    task=task + " [ridge_regression]",
+                                                   logging_level=self.__logging_level,
                                                    log_queue=self.__log_queue)
 
                 elif cv_type == 'hinge':
