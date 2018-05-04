@@ -7,14 +7,13 @@ norm = np.linalg.norm
 
 class MyLASSORegression(MyClassifier):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 expected_betas=None, log_queue=None, logging_level='none', task=None):
+                 log_queue=None, logging_level='none', log_path='', task=None):
 
         super().__init__(x_train=x_train, y_train=y_train, parameters=parameters,
-                         x_val=x_val, y_val=y_val, log_queue=log_queue,
+                         x_val=x_val, y_val=y_val, log_queue=log_queue, log_path=log_path,
                          logging_level=logging_level, task=task)
 
         self.__betas = self.coef_
-        self.__exp_betas = expected_betas
         self.__seen = dict()
         self.__available_idx = []
 

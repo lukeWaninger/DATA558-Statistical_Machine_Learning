@@ -16,12 +16,20 @@ log_path ='/mnt/hgfs/descent_logs/'
 num_splits = 6
 parameters = {
     'classifiers': [
+        # {
+        #     'type': 'hinge',
+        #     'parameters': {
+        #         'lambda': list(np.linspace(0.0001, 0.01, 5)),
+        #         'eta': [.001],
+        #         'init_method': ['zeros'],
+        #     }
+        # },
         {
-            'type': 'hinge',
+            'type': 'lasso',
             'parameters': {
-                'lambda': [0.0001, 0.001, 0.01],
-                'eta': [.001],
-                'init_method': ['zeros'],
+                'alpha': [0.01, 0.1, 2.0, 4.0],
+                'max_iter': [1000],
+                'algo': ['random']
             }
         }
     ],
@@ -42,11 +50,13 @@ y_train = y_train[train_idx]
 x_val = x_val[val_idx, :]
 y_val = y_val[val_idx]
 
+# scale data
 scalar  = StandardScaler().fit(x_train)
 x_train = scalar.transform(x_train)
 x_val   = scalar.transform(x_val)
 x_test  = scalar.transform(x_test)
 
+# train
 clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
                       x_val=x_val, y_val=y_val, n_jobs=-1,
                       classification_method='all_pairs',

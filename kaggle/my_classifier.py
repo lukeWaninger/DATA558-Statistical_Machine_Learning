@@ -152,6 +152,8 @@ class MyClassifier(ABC):
             'task': self.task,
             'x': self.__x,
             'y': self.__y,
+            'logging_level': self.__logging_level,
+            'log_path': self.__log_path,
             'parameters': self.__parameters,
             'splits': [s.dict() for s in self.__cv_splits]
         }
@@ -160,6 +162,8 @@ class MyClassifier(ABC):
         self.task = dict_rep['task']
         self.__x = dict_rep['x']
         self.__y = dict_rep['y']
+        self.__logging_level = dict_rep['logging_level']
+        self.__log_path = dict_rep['log_path']
         self.__parameters = dict_rep['parameters']
         self.__cv_splits = [TrainingSplit().from_dict(d) for d in dict_rep['splits']]
 
@@ -174,19 +178,10 @@ class MyClassifier(ABC):
         return True
 
     def load_from_disk(self, path):
-        self.__cv_splits = None
-        self.__x = None
-        self.__y = None
-
         try:
             with open('%s%s.pk' % (path, self.task), 'rb') as f:
                 data = pickle.load(f)
-
-                self.task = data['task']
-                self.__cv_splits = [TrainingSplit().from_dict(d) for d in data['splits']]
-                self.__x = data['x']
-                self.__y = data['y']
-
+                self.__load_from_dict(data)
                 return self
         except Exception as e:
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
@@ -248,7 +243,7 @@ class MyClassifier(ABC):
 
         self.__cv_splits.append(best_split)
 
-        print('training with all features ' + str(best_split.parameters))
+        print('training with all features %s: %s' % (self.task, str(best_split.parameters)))
         self.__current_split = len(self.__cv_splits)-2
         self._simon_says_fit()
         return self.predict(x, beta)
@@ -266,15 +261,8 @@ class MyClassifier(ABC):
 
     def write_to_disk(self, path=None):
         try:
-            dict_rep = {
-                'task':   self.task,
-                'splits': [split.dict() for split in self.__cv_splits],
-                'x':      self._x,
-                'y':      self._y
-            }
-
             with open('%s%s.pk' % (path, self.task), 'wb') as f:
-                pickle.dump(dict_rep, f, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(self.dict(), f, pickle.HIGHEST_PROTOCOL)
 
             print('%s [%s] written to disk' % (self.task, self.__parameters))
         except Exception as e:
