@@ -96,7 +96,7 @@ class MyL2Hinge(MyClassifier):
         grad_x = self.__compute_grad(beta)
 
         i = 0
-        while norm(grad_x) > 0.4 or i == 0:
+        while norm(grad_x) > 0.3 or i == 0 and i < 1000:
             beta -= eta * grad_x
             grad_x = self.__compute_grad(beta)
 

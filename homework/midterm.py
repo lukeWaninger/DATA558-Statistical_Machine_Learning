@@ -28,13 +28,13 @@ parameters = {
 }
 
 # filter classes
-train_idx = np.concatenate((np.where(y_train == 1)[0], np.where(y_train == 2)[0]))
-x_train = x_train[train_idx, :]
-y_train = y_train[train_idx]
-
-val_idx = np.concatenate((np.where(y_val == 1)[0], np.where(y_val == 2)[0]))
-x_val = x_val[val_idx, :]
-y_val = y_val[val_idx]
+# train_idx = np.concatenate((np.where(y_train == 1)[0], np.where(y_train == 2)[0]))
+# x_train = x_train[train_idx, :]
+# y_train = y_train[train_idx]
+#
+# val_idx = np.concatenate((np.where(y_val == 1)[0], np.where(y_val == 2)[0]))
+# x_val = x_val[val_idx, :]
+# y_val = y_val[val_idx]
 
 scalar  = StandardScaler().fit(x_train)
 x_train = scalar.transform(x_train)
