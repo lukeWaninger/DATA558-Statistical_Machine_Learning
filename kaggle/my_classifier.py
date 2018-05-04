@@ -235,9 +235,9 @@ class MyClassifier(ABC):
     def predict_proba(self, x, beta=None):
         pass
 
-    def predict_with_best_fold(self, x, metric='accuracy', beta=None):
+    def predict_with_best_fold(self, x, metric='error', beta=None):
         splits = self.__cv_splits
-        idx = np.argmax([s.val_metrics.dict()[metric] for s in splits])
+        idx = np.argmin([s.val_metrics.dict()[metric] for s in splits])
 
         best_split = TrainingSplit(
             n=self.__x.shape[0],
@@ -249,7 +249,7 @@ class MyClassifier(ABC):
         self.__cv_splits.append(best_split)
 
         print('training with all features ' + str(best_split.parameters))
-        self.__current_split = len(self.__cv_splits)-1
+        self.__current_split = len(self.__cv_splits)-2
         self._simon_says_fit()
         return self.predict(x, beta)
 

@@ -43,6 +43,7 @@ class MyL2Hinge(MyClassifier):
             self.__grad_descent()
 
             self._set_betas(self.__betas)
+        self.log_metrics([self.__objective(self.coef_)])
         return self
 
     def predict(self, x, beta=None):
@@ -96,10 +97,11 @@ class MyL2Hinge(MyClassifier):
         grad_x = self.__compute_grad(beta)
 
         i = 0
-        while norm(grad_x) > 0.3 or i == 0 and i < 1000:
+        while (norm(grad_x) > 0.3 or i == 0) and i < 1000:
             beta -= eta * grad_x
             grad_x = self.__compute_grad(beta)
 
             i += 1
-            self.log_metrics([i, eta, self.__objective(beta), norm(grad_x)])
+            if i % 100 == 0:
+                self.log_metrics([i, eta, self.__objective(beta), norm(grad_x)])
         self.__betas = beta
