@@ -77,15 +77,16 @@ class MyLogisticRegression(MyClassifier):
         return [exp(xi@b)/(1 + exp(xi@b)) for xi in x]
 
     # private methods
-    def __backtracking(self, beta, t_eta=0.5, alpha=0.5):
-        l, t, max_iter = self._param('lamda'), self._param('eta'), self._param('max_iter')
+    def __backtracking(self, beta):
+        p = self._param
+        a, t, t_eta, max_iter = p('alpha'), p('eta'), p('t_eta'), p('bt_max_iter')
 
         gb = self.__computegrad(beta)
         n_gb = norm(gb)
 
         found_t, i = False, 0
         while not found_t and i < max_iter:
-            if self.__objective(beta - t*gb) < self.__objective(beta) - alpha * t * n_gb**2:
+            if self.__objective(beta - t*gb) < self.__objective(beta) - a * t * n_gb**2:
                 found_t = True
             elif i == max_iter-1:
                 break
@@ -93,8 +94,8 @@ class MyLogisticRegression(MyClassifier):
                 t *= t_eta
                 i += 1
 
-        self.__eta = t
-        return self.__eta
+        self._set_param('eta', t)
+        return t
 
     def __calc_t_init(self):
         x, n, l = self._x, self._n, self._param('lambda')

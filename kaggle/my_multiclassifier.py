@@ -1,6 +1,7 @@
 from kaggle.mlassoreg import MyLASSORegression
 from kaggle.mlogreg import MyLogisticRegression
 from kaggle.mridgereg import MyRidgeRegression
+from kaggle.ml2hinge import MyL2Hinge
 import multiprocessing
 from scipy.stats import mode
 import numpy as np
@@ -30,6 +31,7 @@ class MultiClassifier:
 
         self.__manager = multiprocessing.Manager()
         self.__log_queue = self.__manager.Queue()
+        self.__completion_queue = self.__manager.Queue()
         self.__snd, self.__rcv = multiprocessing.Pipe()
 
         self.task = classification_method
@@ -43,12 +45,13 @@ class MultiClassifier:
 
         workers = []
         for cv in self.cvs:
+            # wait for other m
             if self.__available_procs == 0:
                 self.__rcv.recv()
                 self.__available_procs += 1
 
             worker = multiprocessing.Process(target=self.__train_one,
-                                             args=(cv, self.__snd))
+                                             args=(cv, self.__snd, self.__completion_queue))
             workers.append(worker)
             worker.start()
             time.sleep(3)
@@ -57,8 +60,20 @@ class MultiClassifier:
 
         print('all classifiers queued for processing..\n')
 
+        # wait for each process to finish training
         for worker in workers:
             worker.join()
+
+        # clear the previous cv's and pull in the trained from other processes
+        self.cvs.clear()
+        while not self.__completion_queue.empty():
+            cv_d = self.__completion_queue.get()
+
+            if 'hinge' in cv_d['task']:
+                cv_d = MyL2Hinge(x_train=None, y_train=None, parameters=None,
+                                 dict_rep=cv_d)
+
+            self.cvs.append(cv_d)
 
         log_manager.terminate()
         return self
@@ -84,7 +99,8 @@ class MultiClassifier:
                     continue
 
                 pre = cv.predict_with_best_fold(x)
-                pos, drop, neg = cv.task.split(' ')
+                e = cv.task.split(' ')
+                pos, neg = e[0], e[2]
                 predictions.append([int(pos) if pi == 1 else int(neg) for pi in pre])
             predictions = [mode(pi).mode for pi in np.array(predictions).T]
 
@@ -150,21 +166,28 @@ class MultiClassifier:
                 if cv_type == 'logistic':
                     classifier = MyLogisticRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                       parameters=cv['parameters'],
-                                                      task=task + " [logistic regression]",
+                                                      task=task + " [logistic_regression]",
                                                       log_queue=self.__log_queue)
 
                 elif cv_type == 'LASSO':
                     classifier = MyLASSORegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                    parameters=cv['parameters'],
-                                                   task=task + " [LASSO regression]",
+                                                   task=task + " [LASSO_regression]",
                                                    logging_level=self.__logging_level,
                                                    log_queue=self.__log_queue)
 
                 elif cv_type == 'ridge':
                     classifier = MyRidgeRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                                    parameters=cv['parameters'],
-                                                   task=task + " [ridge regression]",
+                                                   task=task + " [ridge_regression]",
                                                    log_queue=self.__log_queue)
+
+                elif cv_type == 'hinge':
+                    classifier = MyL2Hinge(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
+                                           parameters=cv['parameters'],
+                                           task=task + " [l2_hinge]",
+                                           logging_level=self.__logging_level,
+                                           log_queue=self.__log_queue)
 
                 else:
                     raise Exception('classifier model not found')
@@ -217,7 +240,7 @@ class MultiClassifier:
         print('training completed in %s\n' % time_delta)
         conn.send(True)
 
-    def __train_one(self, cv, conn):
+    def __train_one(self, cv, conn, queue):
         start = time.time()
 
         print("starting %s on pid %s" % (cv.task, os.getpid()))
@@ -227,4 +250,6 @@ class MultiClassifier:
               (os.getpid(), cv.task, time.time() - start))
 
         self.__log_queue.put('END_FLAG')
+
         conn.send(True)
+        queue.put(cv.dict())

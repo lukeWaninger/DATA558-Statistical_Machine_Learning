@@ -7,7 +7,7 @@ import re
 from sklearn.linear_model import Lasso
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
 #
 # # EXERCISE 1

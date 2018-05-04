@@ -3,10 +3,7 @@ import numpy as np
 import datetime
 import os
 import pickle
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
-from sklearn.model_selection import GridSearchCV
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 class MetricSet:
@@ -22,11 +19,9 @@ class MetricSet:
         self.specificity = specificity
 
     def __str__(self):
-        return "%s,%s,%s,%s,%s,%s,%s,%s" % \
-               (self.accuracy, self.error, self.precision, self.recall,
-                self.f1_measure, self.fpr, self.tpr, self.specificity)
+        return ','.join([str(round(val, 4)) for key, val in self.dict().items()])
 
-    def as_dict(self):
+    def dict(self):
         return {
             'accuracy':    self.accuracy,
             'error':       self.error,
@@ -62,7 +57,7 @@ class TrainingSplit:
         self.train_metrics = None
         self.val_metrics   = None
 
-    def as_dict(self):
+    def dict(self):
         return {
             'n': self.n,
             'd': self.d,
@@ -70,8 +65,8 @@ class TrainingSplit:
             'val_idx':     self.val_idx if not None else [],
             'parameters':  self.parameters,
             'betas': self.betas,
-            'train_metrics': self.train_metrics.as_dict() if self.train_metrics is not None else 'none',
-            'val_metrics':   self.val_metrics.as_dict() if self.val_metrics is not None else 'none'
+            'train_metrics': self.train_metrics.dict() if self.train_metrics is not None else 'none',
+            'val_metrics':   self.val_metrics.dict() if self.val_metrics is not None else 'none'
         }
 
     def from_dict(self, data):
@@ -89,25 +84,20 @@ class TrainingSplit:
 
 class MyClassifier(ABC):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 task=None, log_queue=None, logging_level='none'):
-        self.task = task
+                 task=None, log_queue=None, log_path='', logging_level='none', dict_rep=None):
+        if dict_rep is not None:
+            self.__load_from_dict(dict_rep)
+        else:
+            self.task = task
 
-        self.__parameters = parameters
-        self.__x, self.__y, self.__cv_splits = \
-            self.__generate_splits(x_train, y_train, x_val, y_val)
+            self.__parameters = parameters
+            self.__x, self.__y, self.__cv_splits = self.__generate_splits(x_train, y_train, x_val, y_val)
 
         self.__current_split = -1
 
         self.__logging_level = logging_level
-        try:
-            self.__log_path = parameters['log_path']
-        except:
-            self.__log_path = None
-
-        try:
-            self.__log_queue = log_queue
-        except:
-            self.__log_queue = None
+        self.__log_path = log_path
+        self.__log_queue = log_queue
 
     @property
     def coef_(self):
@@ -153,13 +143,32 @@ class MyClassifier(ABC):
     def _set_betas(self, betas):
         self.__cv_splits[self.__current_split].betas = betas
 
+    def _set_param(self, param, value):
+        self.__cv_splits[self.__current_split].parameters[param] = value
+
     # public methods
+    def dict(self):
+        return {
+            'task': self.task,
+            'x': self.__x,
+            'y': self.__y,
+            'parameters': self.__parameters,
+            'splits': [s.dict() for s in self.__cv_splits]
+        }
+
+    def __load_from_dict(self, dict_rep):
+        self.task = dict_rep['task']
+        self.__x = dict_rep['x']
+        self.__y = dict_rep['y']
+        self.__parameters = dict_rep['parameters']
+        self.__cv_splits = [TrainingSplit().from_dict(d) for d in dict_rep['splits']]
+
     def fit(self):
         if self.__current_split == len(self.__cv_splits)-1:
             return False
 
-        if self.__log_path is not None:
-            self.write_to_disk(self.__log_path)
+        # if self.__log_path is not None:
+        #     self.write_to_disk(self.__log_path)
 
         self.__current_split += 1
         return True
@@ -186,9 +195,8 @@ class MyClassifier(ABC):
         if self.__logging_level == 'none':
             return
 
-        split = self.__cv_splits[self.__current_split]
-        pstr = ','.join([str(v) for k, v in split.parameters.items()])
-        arg_str = ','.join([str(a) for a in args])
+        pstr = ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
+        arg_str = ','.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
         row = '%s,p%s,%s,%s,' % \
               (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
@@ -197,13 +205,13 @@ class MyClassifier(ABC):
             train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
             val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
 
-            split.train_metrics = train_metrics
-            split.val_metrics = val_metrics
+            self.__cv_splits[self.__current_split].train_metrics = train_metrics
+            self.__cv_splits[self.__current_split].val_metrics = val_metrics
 
             if self.__logging_level == 'all':
                 row += ',%s,%s,%s' % (str(train_metrics), str(val_metrics), arg_str)
             else:
-                row += ',%s,%s,%s' % (train_metrics.error, val_metrics.error, arg_str)
+                row += ',%.4f,%.4f,%s' % (round(train_metrics.error, 4), round(val_metrics.error, 4), arg_str)
 
         elif self.__logging_level == 'minimal':
             row += arg_str
@@ -229,20 +237,20 @@ class MyClassifier(ABC):
 
     def predict_with_best_fold(self, x, metric='accuracy', beta=None):
         splits = self.__cv_splits
-        idx = np.argmax([s.val_metrics.as_dict()[metric] for s in splits])[0]
+        idx = np.argmax([s.val_metrics.dict()[metric] for s in splits])
 
         best_split = TrainingSplit(
             n=self.__x.shape[0],
             d=self.__x.shape[1],
             train_idx=np.arange(self.__x.shape[0]),
-            parameters=self.__cv_splits[idx]
+            parameters=splits[idx].parameters
         )
 
         self.__cv_splits.append(best_split)
 
         print('training with all features ' + str(best_split.parameters))
+        self.__current_split = len(self.__cv_splits)-1
         self._simon_says_fit()
-
         return self.predict(x, beta)
 
     def set_log_queue(self, queue):
@@ -260,7 +268,7 @@ class MyClassifier(ABC):
         try:
             dict_rep = {
                 'task':   self.task,
-                'splits': [split.as_dict() for split in self.__cv_splits],
+                'splits': [split.dict() for split in self.__cv_splits],
                 'x':      self._x,
                 'y':      self._y
             }
@@ -281,11 +289,6 @@ class MyClassifier(ABC):
             pre = self.predict(x)
         else:
             pre = prediction_func(x)
-
-        num_classes = len(np.unique(y))
-        if num_classes > 2:
-            acc = (np.sum([yh == yt for yh, yt in zip(pre, y)]) / len(y))[0]
-            return MetricSet(acc=acc, err=1 - acc)
 
         p  = np.sum(y ==  1)
         n  = np.sum(y == -1)
@@ -333,10 +336,12 @@ class MyClassifier(ABC):
         splits, idx_set = [], {}
         cv_splits = 1
 
+        # calculate how many splits we need to create
         for key, value in self.__parameters.items():
             cv_splits *= len(value)
             idx_set[key] = 0
 
+        # adjust which parameter we need for which split
         def set_parameter_idx():
             for k, v in self.__parameters.items():
                 if idx_set[k] == len(v) - 1:
