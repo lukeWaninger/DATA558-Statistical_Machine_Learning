@@ -364,7 +364,7 @@ class MyClassifier(ABC):
                 )
         else:
             parameters = {}
-            for key, value in self.__parameters:
+            for key, value in self.__parameters.items():
                 parameters[key] = value[0]
 
             splits.append(
