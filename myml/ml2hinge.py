@@ -19,14 +19,11 @@ class MyL2Hinge(MyClassifier):
         x, y, l, n = self._x, self._y, self._param('lambda'), self._n
 
         yx  = y[:, np.newaxis] * x
-        yxb = yx @ beta
-        return 1./n * (np.sum(np.maximum(0, 1 - yxb)**2)) + l*np.linalg.norm(beta)**2
+        return 1./n * (np.sum(np.maximum(0, 1 - yx@beta)**2)) + l*np.linalg.norm(beta)**2
 
     def _compute_grad(self, beta):
         x, y, n = self._x, self._y, self._n,
         reg = 2*self._param('lambda')*beta
 
         yx   = y[:, np.newaxis]*x
-        yxb  = yx@beta
-        loss = np.maximum(0, 1-yxb)
-        return -2./n * (loss @ yx) + reg
+        return -2./n * (np.maximum(0, 1-yx@beta) @ yx) + reg
