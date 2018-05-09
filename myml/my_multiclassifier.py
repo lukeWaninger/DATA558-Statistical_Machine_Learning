@@ -270,4 +270,4 @@ class MultiClassifier:
         self.__log_queue.put('END_FLAG')
 
         conn.send(True)
-        queue.put(cv.dict())
+        queue.put(cv.dict)

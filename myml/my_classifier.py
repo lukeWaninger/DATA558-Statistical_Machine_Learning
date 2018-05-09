@@ -28,11 +28,11 @@ class MyClassifier(ABC):
 
     @abstractmethod
     def _compute_grad(self, beta):
-        pass
+        yield
 
     @abstractmethod
     def _objective(self, beta):
-        pass
+        yield
 
     @abstractmethod
     def predict(self, x, beta=None):
@@ -43,7 +43,7 @@ class MyClassifier(ABC):
         pass
 
     def fit(self):
-        while self.__current_split != len(self.__cv_splits)-1:
+        while True:
             self._set_betas(np.zeros(self._d))
 
             algo = self.__cv_splits[self.__current_split].parameters['algo']
@@ -56,13 +56,16 @@ class MyClassifier(ABC):
             elif algo == 'cyclic_cd':
                 pass
 
-            self.__current_split += 1
+            if self.__current_split != len(self.__cv_splits) - 1:
+                self.__current_split += 1
+            else:
+                break
 
         # if self.__log_path is not None:
         #     self.write_to_disk(self.__log_path)
         return self
 
-    def predict_with_best_fold(self, x, metric='error', beta=None):
+    def predict_with_best_fold(self, x, metric='error'):
         splits = self.__cv_splits
         idx = np.argmin([s.val_metrics.dict[metric] for s in splits])
 
@@ -77,9 +80,9 @@ class MyClassifier(ABC):
         )
 
         print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
-        self.__current_split = len(self.__cv_splits)-2
+        self.__current_split = len(self.__cv_splits)-1
         self.fit()
-        return self.predict(x, beta)
+        return self.predict(x)
 
     def __compute_metrics(self, x, y, prediction_func=None):
         if x is None and y is None:
@@ -155,9 +158,9 @@ class MyClassifier(ABC):
             grad_x = self._compute_grad(beta)
 
             i += 1
+            self._set_betas(beta)
             if i % 100 == 0:
                 self.log_metrics([i])
-        self.__betas = beta
 
     def __fast_grad_descent(self):
         eps, max_iter = self._param('eps'), self._param('max_iter')
@@ -195,7 +198,7 @@ class MyClassifier(ABC):
         if self.__logging_level == 'none':
             return
 
-        pstr = '' # ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
+        pstr = ''  # ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
         arg_str = ','.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
         row = self.task  # '%s,p%s,%s,%s,' % \
@@ -241,7 +244,7 @@ class MyClassifier(ABC):
     def write_to_disk(self, path=None):
         try:
             with open('%s%s.pk' % (path, self.task), 'wb') as f:
-                pickle.dump(self.dict(), f, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(self.dict, f, pickle.HIGHEST_PROTOCOL)
 
             print('%s [%s] written to disk' % (self.task, self.__parameters))
         except Exception as e:
@@ -351,7 +354,7 @@ class MyClassifier(ABC):
             'logging_level': self.__logging_level,
             'log_path': self.__log_path,
             'parameters': self.__parameters,
-            'splits': [s.dict() for s in self.__cv_splits]
+            'splits': [s.dict for s in self.__cv_splits]
         }
 
     @property

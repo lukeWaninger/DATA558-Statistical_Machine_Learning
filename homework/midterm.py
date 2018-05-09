@@ -70,28 +70,28 @@ def ex2():
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': [2 ** i + 0.001 for i in range(-5, 4, 1)],
-                    'max_iter': [100],
+                    'lambda': [2**i + 0.001 for i in range(-1, 1, 1)],
+                    'max_iter': [5],
                     't_eta': [0.8]
                 }
             }
         ]
     }
 
-    ## filter classes
-    # train_idx, val_idx = [], []
-    # for k in [1, 2]:
-    #     train_idx = np.concatenate((train_idx, np.where(y_train == k)[0]))
-    #     val_idx = np.concatenate((val_idx, np.where(y_val == k)[0]))
-    #
-    # train_idx = [int(i) for i in train_idx]
-    # val_idx = [int(i) for i in val_idx]
-    #
-    # x_train = x_train[train_idx, :]
-    # y_train = y_train[train_idx]
-    #
-    # x_val = x_val[val_idx, :]
-    # y_val = y_val[val_idx]
+    # filter classes
+    train_idx, val_idx = [], []
+    for k in [1, 2]:
+        train_idx = np.concatenate((train_idx, np.where(y_train == k)[0]))
+        val_idx = np.concatenate((val_idx, np.where(y_val == k)[0]))
+
+    train_idx = [int(i) for i in train_idx]
+    val_idx = [int(i) for i in val_idx]
+
+    x_train = x_train[train_idx, :]
+    y_train = y_train[train_idx]
+
+    x_val = x_val[val_idx, :]
+    y_val = y_val[val_idx]
 
     # scale data
     scalar  = StandardScaler().fit(x_train)
@@ -110,5 +110,5 @@ def ex2():
 
 
 if __name__ == '__main__':
-    ex1()
-    #ex2()
+    #ex1()
+    ex2()
