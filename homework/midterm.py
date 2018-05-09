@@ -78,7 +78,7 @@ def ex2():
         ]
     }
 
-    # filter classes
+    ## filter classes
     # train_idx, val_idx = [], []
     # for k in [1, 2]:
     #     train_idx = np.concatenate((train_idx, np.where(y_train == k)[0]))
