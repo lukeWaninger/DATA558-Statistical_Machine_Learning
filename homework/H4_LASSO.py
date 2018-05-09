@@ -1,5 +1,5 @@
-from kaggle.mlassoreg import MyLASSORegression
-from kaggle.my_multiclassifier import MultiClassifier
+from myml.mlassoreg import MyLASSORegression
+from myml.my_multiclassifier import MultiClassifier
 import numpy as np
 import os
 import pandas as pd
@@ -86,7 +86,7 @@ from sklearn.preprocessing import StandardScaler
 #
 
 # EXERCISE 3
-p1 = re.sub(r'(homework)|(kaggle)|(data)+', '', os.getcwd()) + '/kaggle/data/'
+p1 = re.sub(r'(homework)|(myml)|(data)+', '', os.getcwd()) + '/myml/data/'
 
 x_train = np.load(p1 + 'train_features.npy')
 y_train = np.load(p1 + 'train_labels.npy')

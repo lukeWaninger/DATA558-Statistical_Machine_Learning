@@ -1,5 +1,5 @@
-from kaggle.my_multiclassifier import MultiClassifier
-from kaggle.ml2hinge import MyL2Hinge
+from myml.my_multiclassifier import MultiClassifier
+from myml.ml2hinge import MyL2Hinge
 import numpy as np
 import os
 import pandas as pd
@@ -32,26 +32,26 @@ parameters = {
     'lambda': [1.],
     'alpha': [0.5],
     'eta': [1.],
-    't_eta': [0.5],
-    'bt_max_iter': [10],
+    't_eta': [0.8],
+    'bt_max_iter': [50],
     'max_iter': [100],
-    'eps': [0.02]
+    'eps': [.001]
 }
 
 cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
                parameters=parameters, log_path='', logging_level='reduced',
-               task='lsvm-spam')
+               task='ex1')
 cv = cv.fit()
 del cv
 
 parameters['lambda'] = list(np.linspace(0.001, 1., 5))
 cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
                parameters=parameters, log_path='', logging_level='reduced',
-               task='lsvm-spam_2')
+               task='ex2')
 cv.fit()
 
 
-# p1 = re.sub(r'(homework)|(kaggle)|(data)+', '', os.getcwd()) + '/kaggle/data/'
+# p1 = re.sub(r'(homework)|(myml)|(data)+', '', os.getcwd()) + '/myml/data/'
 #
 # x_train = np.load(p1 + 'train_features.npy')
 # y_train = np.load(p1 + 'train_labels.npy')

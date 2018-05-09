@@ -1,2 +1,2 @@
-import kaggle
+import myml
 import homework
