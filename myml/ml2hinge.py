@@ -3,8 +3,8 @@ import numpy as np
 
 
 class MyL2Hinge(MyClassifier):
-    def __init__(self, *args, **kwargs):
-        super().__init__(self, args, kwargs)
+    def __init__(self, x_train, y_train, parameters, *args, **kwargs):
+        super().__init__(x_train, y_train, parameters, args, kwargs)
 
     def predict(self, x, beta=None):
         if beta is None:
@@ -13,7 +13,7 @@ class MyL2Hinge(MyClassifier):
         return [1 if xi @ beta.T > .5 else -1 for xi in x]
 
     def predict_proba(self, x, beta=None):
-        return None
+        return x@beta
 
     def _objective(self, beta):
         x, y, l, n = self._x, self._y, self._param('lambda'), self._n

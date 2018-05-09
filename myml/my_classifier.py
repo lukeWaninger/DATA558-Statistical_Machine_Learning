@@ -7,19 +7,24 @@ from sklearn.model_selection import KFold
 
 
 class MyClassifier(ABC):
-    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
-                 task=None, log_queue=None, log_path='', logging_level='none', dict_rep=None):
-        if dict_rep is not None:
-            self.__load_from_dict(dict_rep)
+    def __init__(self, x_train, y_train, parameters, *args, **kwargs):
+        if 'dict_rep' in args[1].keys():
+            self.__load_from_dict(args[1]['dict_rep'])
         else:
-            self.task = task
+            if 'x_val' in args[1].keys() and 'y_val' in args[1].keys():
+                x_val = args[1]['x_val']
+                y_val = args[1]['y_val']
+            else:
+                x_val, y_val = None, None
+
+            self.task = args[1]['task']
             self.__parameters = parameters
             self.__x, self.__y, self.__cv_splits = self.__generate_splits(x_train, y_train, x_val, y_val)
 
         self.__current_split = -1
-        self.__logging_level = logging_level
-        self.__log_path = log_path
-        self.__log_queue = log_queue
+        self.__logging_level = args[1]['logging_level'] if 'logging_level' in args[1].keys() else 'none'
+        self.__log_path      = args[1]['log_path']      if 'log_path'      in args[1].keys() else ''
+        self.__log_queue     = args[1]['loq_queue']     if 'loq_queue'     in args[1].keys() else None
 
     @abstractmethod
     def _compute_grad(self, beta):
@@ -172,7 +177,7 @@ class MyClassifier(ABC):
 
             i += 1
             self._set_betas(b0)
-            self.log_metrics([i, t, self._objective(b0)])
+            self.log_metrics([self._param('lambda'), i, t, self._objective(b0)])
 
     # ---------------------------------------------------------------
     # miscellaneous methods
