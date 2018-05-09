@@ -42,13 +42,13 @@ cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
                parameters=parameters, log_path='', logging_level='reduced',
                task='ex1')
 cv = cv.fit()
-del cv
-
-parameters['lambda'] = list(np.linspace(0.001, 1., 5))
-cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
-               parameters=parameters, log_path='', logging_level='reduced',
-               task='ex2')
-cv.fit()
+# del cv
+#
+# parameters['lambda'] = list(np.linspace(0.001, 1., 5))
+# cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
+#                parameters=parameters, log_path='', logging_level='reduced',
+#                task='ex2')
+# cv.fit()
 
 
 # p1 = re.sub(r'(homework)|(myml)|(data)+', '', os.getcwd()) + '/myml/data/'
