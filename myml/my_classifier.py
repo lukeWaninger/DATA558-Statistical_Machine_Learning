@@ -38,7 +38,7 @@ class MyClassifier(ABC):
         pass
 
     def fit(self):
-        while self.__current_split != len(self.__cv_splits):
+        while self.__current_split != len(self.__cv_splits)-1:
             self._set_betas(np.zeros(self._d))
 
             algo = self.__cv_splits[self.__current_split].parameters['algo']
@@ -193,7 +193,7 @@ class MyClassifier(ABC):
         pstr = '' # ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
         arg_str = ','.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
-        row = self.task + ',' # '%s,p%s,%s,%s,' % \
+        row = self.task  # '%s,p%s,%s,%s,' % \
               #(datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
 
         if self.__logging_level in ['all', 'reduced']:
@@ -243,7 +243,11 @@ class MyClassifier(ABC):
             print('could not write %s to disk: %s' % (self.task, [str(a) for a in e.args]))
 
     def _param(self, parameter):
-        return self.__cv_splits[self.__current_split].parameters[parameter]
+        try:
+            return self.__cv_splits[self.__current_split].parameters[parameter]
+        except KeyError as e:
+            print([str(a) for a in e.args])
+            return None
 
     def _set_betas(self, betas):
         self.__cv_splits[self.__current_split].betas = betas
