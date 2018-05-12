@@ -2,7 +2,7 @@ from myml.my_classifier import MyClassifier
 import numpy as np
 
 
-class MyL2Hinge(MyClassifier):
+class MyLinearSVM(MyClassifier):
     def __init__(self, x_train, y_train, parameters, *args, **kwargs):
         super().__init__(x_train, y_train, parameters, args, kwargs)
 

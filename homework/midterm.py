@@ -1,5 +1,5 @@
 from myml.my_multiclassifier import MultiClassifier
-from myml.ml2hinge import MyL2Hinge
+from myml.mlinear_svm import MyL2Hinge
 import numpy as np
 import os
 import pandas as pd
