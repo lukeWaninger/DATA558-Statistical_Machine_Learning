@@ -54,6 +54,8 @@ class MyClassifier(ABC):
 
         :return: trained classifier
         """
+        self.set_split(0)
+
         while True:
             self._set_betas(np.zeros(self._d))
 
@@ -324,7 +326,7 @@ class MyClassifier(ABC):
         :raises ValueError, if split number is not defined
         :return: self
         """
-        if not 0 < split_number < len(self.__cv_splits):
+        if not 0 <= split_number < len(self.__cv_splits):
             raise ValueError('split not calculated')
         else:
             self.__current_split = split_number
