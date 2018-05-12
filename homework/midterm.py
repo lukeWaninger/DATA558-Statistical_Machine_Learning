@@ -59,7 +59,6 @@ def ex2():
     y_val = np.load(p1 + 'val_labels.npy')
     x_test = np.load(p1 + 'test_features.npy')
 
-    log_path = './'
     parameters = {
         'classifiers': [
             {
@@ -70,8 +69,8 @@ def ex2():
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': [2**i + 0.001 for i in range(-1, 1, 1)],
-                    'max_iter': [5],
+                    'lambda': [2**i for i in range(-5, 5)],
+                    'max_iter': [100],
                     't_eta': [0.8]
                 }
             }
@@ -79,36 +78,36 @@ def ex2():
     }
 
     # filter classes
-    train_idx, val_idx = [], []
-    for k in [1, 2]:
-        train_idx = np.concatenate((train_idx, np.where(y_train == k)[0]))
-        val_idx = np.concatenate((val_idx, np.where(y_val == k)[0]))
-
-    train_idx = [int(i) for i in train_idx]
-    val_idx = [int(i) for i in val_idx]
-
-    x_train = x_train[train_idx, :]
-    y_train = y_train[train_idx]
-
-    x_val = x_val[val_idx, :]
-    y_val = y_val[val_idx]
-
-    # scale data
-    scalar  = StandardScaler().fit(x_train)
-    x_train = scalar.transform(x_train)
-    x_val   = scalar.transform(x_val)
-    x_test  = scalar.transform(x_test)
+    # train_idx, val_idx = [], []
+    # for k in [5, 9]:
+    #     train_idx = np.concatenate((train_idx, np.where(y_train == k)[0]))
+    #     val_idx = np.concatenate((val_idx, np.where(y_val == k)[0]))
+    #
+    # train_idx = [int(i) for i in train_idx]
+    # val_idx = [int(i) for i in val_idx]
+    #
+    # x_train = x_train[train_idx, :]
+    # y_train = y_train[train_idx]
+    #
+    # x_val = x_val[val_idx, :]
+    # y_val = y_val[val_idx]
+    #
+    # # scale data
+    # scalar  = StandardScaler().fit(x_train)
+    # x_train = scalar.transform(x_train)
+    # x_val   = scalar.transform(x_val)
+    # x_test  = scalar.transform(x_test)
 
     # train
     clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
                           x_val=x_val, y_val=y_val, n_jobs=-1,
                           classification_method='all_pairs',
-                          log_path=log_path,
+                          log_path='./',
                           logging_level='reduced')
     clf.fit()
     clf.output_predictions(x_test)
 
 
 if __name__ == '__main__':
-    #ex1()
+    ex1()
     ex2()

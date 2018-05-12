@@ -8,8 +8,10 @@ from sklearn.model_selection import KFold
 
 class MyClassifier(ABC):
     def __init__(self, x_train, y_train, parameters, *args, **kwargs):
+        # load this classifier from the dict representation if provided
         if 'dict_rep' in args[1].keys():
             self.__load_from_dict(args[1]['dict_rep'])
+        # otherwise begin loading parameters
         else:
             if 'x_val' in args[1].keys() and 'y_val' in args[1].keys():
                 x_val = args[1]['x_val']
@@ -21,9 +23,11 @@ class MyClassifier(ABC):
             self.__parameters = parameters
             self.__x, self.__y, self.__cv_splits = self.__generate_splits(x_train, y_train, x_val, y_val)
 
+        # setup cross-validation and logging features
         self.__current_split = -1
         self.__logging_level = args[1]['logging_level'] if 'logging_level' in args[1].keys() else 'none'
         self.__log_path      = args[1]['log_path']      if 'log_path'      in args[1].keys() else ''
+        self.__write_to_disk = args[1]['write_to_disk'] if 'write_to_disk' in args[1].keys() else False
         self.__log_queue     = args[1]['loq_queue']     if 'loq_queue'     in args[1].keys() else None
 
     @abstractmethod
@@ -43,6 +47,12 @@ class MyClassifier(ABC):
         pass
 
     def fit(self):
+        """ fit the classifier
+        proceeds through each cross validation split, training each using the
+        algorithm defined by the 'algo' key provided in parameters
+
+        :return: trained classifier
+        """
         while True:
             self._set_betas(np.zeros(self._d))
 
@@ -52,7 +62,7 @@ class MyClassifier(ABC):
             elif algo == 'fgrad':
                 self.__fast_grad_descent()
             elif algo == 'random_cd':
-                pass
+                raise NotImplemented('')
             elif algo == 'cyclic_cd':
                 pass
 
@@ -61,13 +71,31 @@ class MyClassifier(ABC):
             else:
                 break
 
-        # if self.__log_path is not None:
-        #     self.write_to_disk(self.__log_path)
+        # write self to disk
+        if self.__log_path is not None and self.__write_to_disk:
+            self.write_to_disk(self.__log_path)
+
         return self
 
     def predict_with_best_fold(self, x, metric='error'):
+        """ predict the given labels
+        uses the provided metric to determine which fold to extract parameters.
+        once identified, a new fold is generated and trained using those parameters.
+
+        :param x: nXm ndarray, the samples to predict
+        :param metric: string (optional), metric to use for finding the optimal
+        parameter est. possibilities are {'accuracy', 'error', 'precision', 'recall',
+        'specificity', 'f1_measure', 'fpr', 'tpr'}
+        :return: list, predictions {-1, 1}
+        :raise: ValueError, if provided metric is not defined
+        """
         splits = self.__cv_splits
-        idx = np.argmin([s.val_metrics.dict[metric] for s in splits])
+        if metric in ['fpr', 'error']:
+            idx = np.argmin([s.val_metrics.dict[metric] for s in splits])
+        elif metric in ['accuracy', 'precision', 'recall', 'specificity', 'f1_measure', 'tpr']:
+            idx = np.argmax([s.val_metrics.dict[metric] for s in splits])
+        else:
+            raise ValueError('provided metric is not defined')
 
         # create a new split with parameters from the best
         self.__cv_splits.append(
@@ -79,12 +107,22 @@ class MyClassifier(ABC):
             )
         )
 
+        # train with the identified paramater set
         print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
         self.__current_split = len(self.__cv_splits)-1
         self.fit()
+
         return self.predict(x)
 
     def __compute_metrics(self, x, y, prediction_func=None):
+        """ compute metrics at the current classifier state
+
+        :param x: nXm ndarray, input samples
+        :param y: nX1 ndarray, true labels
+        :param prediction_func: function (optional), provide an alternative function
+        to use for prediction. must return labels {-1, 1}
+        :return: MetricSet, containing classifier performance metrics
+        """
         if x is None and y is None:
             return MetricSet()
 

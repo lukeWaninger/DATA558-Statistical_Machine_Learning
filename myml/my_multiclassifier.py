@@ -262,6 +262,7 @@ class MultiClassifier:
         start = time.time()
 
         print("starting %s on pid %s" % (cv.task, os.getpid()))
+        cv.set_log_queue(self.__log_queue)
         cv = cv.fit()
 
         print('%s finished %s in %s seconds' %
