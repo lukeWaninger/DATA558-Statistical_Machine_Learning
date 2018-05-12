@@ -11,6 +11,7 @@ class MyClassifier(ABC):
         # load this classifier from the dict representation if provided
         if 'dict_rep' in args[1].keys():
             self.__load_from_dict(args[1]['dict_rep'])
+
         # otherwise begin loading parameters
         else:
             if 'x_val' in args[1].keys() and 'y_val' in args[1].keys():
@@ -40,11 +41,11 @@ class MyClassifier(ABC):
 
     @abstractmethod
     def predict(self, x, beta=None):
-        pass
+        yield
 
     @abstractmethod
     def predict_proba(self, x, beta=None):
-        pass
+        yield
 
     def fit(self):
         """ fit the classifier
@@ -62,9 +63,9 @@ class MyClassifier(ABC):
             elif algo == 'fgrad':
                 self.__fast_grad_descent()
             elif algo == 'random_cd':
-                raise NotImplemented('')
+                raise NotImplemented('random coordinate descent not implemented')
             elif algo == 'cyclic_cd':
-                pass
+                raise NotImplemented('cyclic coordinate descent not implemented')
 
             if self.__current_split != len(self.__cv_splits) - 1:
                 self.__current_split += 1
@@ -179,8 +180,8 @@ class MyClassifier(ABC):
 
         found_t, i = False, 0
         while not found_t and i < max_iter:
-            lh = self._objective(beta - t * gb)
-            rh = self._objective(beta) - a * t * n_gb ** 2
+            lh = self._objective(beta - t*gb)
+            rh = self._objective(beta) - a*t*n_gb**2
             if lh < rh:
                 found_t = True
             elif i == max_iter - 1:
@@ -212,8 +213,7 @@ class MyClassifier(ABC):
 
             i += 1
             self._set_betas(beta)
-            if i % 10 == 0:
-                self.log_metrics([i, self._objective(beta)])
+            self.log_metrics([i, self._objective(beta)])
 
     def __fast_grad_descent(self):
         """ fast-gradient descent

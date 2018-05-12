@@ -1,5 +1,5 @@
 from myml.my_multiclassifier import MultiClassifier
-from myml.mlinear_svm import MyL2Hinge
+from myml.mlinear_svm import MyLinearSVM
 import numpy as np
 import os
 import pandas as pd
@@ -37,16 +37,16 @@ def ex1():
         't_eta': [0.8]
     }
 
-    cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
-                   parameters=parameters, log_path='', logging_level='reduced',
-                   task='ex1a')
+    cv = MyLinearSVM(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
+                     parameters=parameters, log_path='', logging_level='reduced',
+                     task='ex1a')
     cv = cv.fit()
     del cv
 
     parameters['lambda'] = list(np.linspace(0.001, 1., 5))
-    cv = MyL2Hinge(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
-                   parameters=parameters, log_path='', logging_level='reduced',
-                   task='ex1b')
+    cv = MyLinearSVM(x_train=x_train, y_train=y_train, x_val=x_test, y_val=y_test,
+                     parameters=parameters, log_path='', logging_level='reduced',
+                     task='ex1b')
     cv.fit()
 
 
