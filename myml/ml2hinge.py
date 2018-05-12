@@ -10,8 +10,10 @@ class MyL2Hinge(MyClassifier):
         """ predict binary classification {-1, 1} for given sample set
 
         :param x: nXm ndarray, input samples
+
         :param beta: mX1 ndarray (optional), weight coefficients. if not provided
                      method will use final training betas
+
         :return: list, containing predictions {-1, 1}
         """
         if beta is None:
@@ -24,8 +26,10 @@ class MyL2Hinge(MyClassifier):
         classification
 
         :param x: nXm ndarray, input samples
+
         :param beta: mX1 ndarray (optional), weight coefficients. if not provided
-                     method will use final training betas
+         method will use final training betas
+
         :return: list containing predictions {-1, 1}
         """
         return x@beta
@@ -34,6 +38,7 @@ class MyL2Hinge(MyClassifier):
         """ linear svm objective function
 
         :param beta: mX1 ndarray, weight coefficients being optimized
+
         :return: float, objective value.
         """
         x, y, l, n = self._x, self._y, self._param('lambda'), self._n
@@ -45,6 +50,7 @@ class MyL2Hinge(MyClassifier):
         """ compute gradient
 
         :param beta: mX1 ndarray, weight coefficients being optimized
+
         :return: mX1 ndarray, gradient to applied to betas
         """
         x, y, n = self._x, self._y, self._n,

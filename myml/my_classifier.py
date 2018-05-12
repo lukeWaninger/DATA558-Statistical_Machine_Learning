@@ -82,12 +82,12 @@ class MyClassifier(ABC):
         uses the provided metric to determine which fold to extract parameters.
         once identified, a new fold is generated and trained using those parameters.
 
-        :param x: nXm ndarray, the samples to predict
+        :param x: nXd ndarray, the samples to predict
         :param metric: string (optional), metric to use for finding the optimal
         parameter est. possibilities are {'accuracy', 'error', 'precision', 'recall',
         'specificity', 'f1_measure', 'fpr', 'tpr'}
-        :return: list, predictions {-1, 1}
         :raise: ValueError, if provided metric is not defined
+        :return: list, predictions {-1, 1}
         """
         splits = self.__cv_splits
         if metric in ['fpr', 'error']:
@@ -117,7 +117,7 @@ class MyClassifier(ABC):
     def __compute_metrics(self, x, y, prediction_func=None):
         """ compute metrics at the current classifier state
 
-        :param x: nXm ndarray, input samples
+        :param x: nXd ndarray, input samples
         :param y: nX1 ndarray, true labels
         :param prediction_func: function (optional), provide an alternative function
         to use for prediction. must return labels {-1, 1}
@@ -164,6 +164,13 @@ class MyClassifier(ABC):
                          f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
 
     def __backtracking(self, beta):
+        """ backtracking line search
+        use the provided beta values to determine optimum learning rate for
+        current iteration
+
+        :param beta: 1xD ndarray, betas for current optimization point
+        :return:
+        """
         p = self._param
         a, t, t_eta, max_iter = p('alpha'), p('eta'), p('t_eta'), p('bt_max_iter')
 
@@ -185,9 +192,17 @@ class MyClassifier(ABC):
         self._set_param('eta', t)
         return t
 
-    def __grad_descent(self):
-        x, y, beta, eta = self._x, self._y, self.__betas, self._param('eta')
-        max_iter = self._param('max_iter')
+    def __grad_descent(self, beta=None):
+        """ gradient descent
+
+        :param beta: 1XD ndarray (optional), if not provided beta's will begin fitting
+        from initial zeros
+
+        :return: None
+        """
+        x, y, eta, max_iter = self._x, self._y, self._param('eta'), self._param('max_iter')
+        if beta is None:
+            beta = self.coef_
         grad_x = self._compute_grad(beta)
 
         i = 0
@@ -197,10 +212,15 @@ class MyClassifier(ABC):
 
             i += 1
             self._set_betas(beta)
-            if i % 100 == 0:
-                self.log_metrics([i])
+            if i % 10 == 0:
+                self.log_metrics([i, self._objective(beta)])
 
     def __fast_grad_descent(self):
+        """ fast-gradient descent
+        perform gradient descent with the fast-gradient algorithm
+
+        :return: None
+        """
         eps, max_iter = self._param('eps'), self._param('max_iter')
 
         b0 = self.coef_
@@ -224,6 +244,12 @@ class MyClassifier(ABC):
     # miscellaneous methods
     # ---------------------------------------------------------------
     def load_from_disk(self, path):
+        """ load the classifier from disk
+
+        :param path: string, path to classifier file location. name should match current
+        classifier task
+        :return: None
+        """
         try:
             with open('%s%s.pk' % (path, self.task), 'rb') as f:
                 data = pickle.load(f)
@@ -232,16 +258,28 @@ class MyClassifier(ABC):
         except Exception as e:
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
-    def log_metrics(self, args, prediction_func=None):
+    def log_metrics(self, args=None, prediction_func=None):
+        """ metrics logging
+
+        :param args: list (optional), print string representations of each item in list,
+        comma delimited for csv output
+
+        :param prediction_func: function (optional), include a different function to use
+        for production
+
+        :return: None
+        """
         if self.__logging_level == 'none':
             return
 
-        pstr = ''  # ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
+        # write basic classifier state
+        pstr = ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
         arg_str = ','.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
-        row = self.task  # '%s,p%s,%s,%s,' % \
-              #(datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
+        row = '%s,p%s,%s,%s,' % \
+              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
 
+        # add columns based on current logging level
         if self.__logging_level in ['all', 'reduced']:
             train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
             val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
@@ -260,26 +298,45 @@ class MyClassifier(ABC):
         else:
             return
 
-        print(row)
+        # if there's a log queue managing multiple classifiers, forward the message
+        # to the managing process
         if self.__log_queue is not None:
             self.__log_queue.put(row)
+        # otherwise print it to the console and output to csv
         else:
+            print(row)
             if self.__log_path is not None:
                 with open('%s%s.csv' % (self.__log_path, self.task), 'a+') as f:
                     f.writelines(row + '\n')
 
     def set_log_queue(self, queue):
+        """ set queue for logging metrics
+
+        :param queue: multiprocessing.Queue(), set the managing log queue
+        :return: None
+        """
         self.__log_queue = queue
 
     def set_split(self, split_number):
+        """ forcefully set the training split to use
+
+        :param split_number: int, training split number
+        :raises ValueError, if split number is not defined
+        :return: self
+        """
         if not 0 < split_number < len(self.__cv_splits):
-            print('split not calculated')
+            raise ValueError('split not calculated')
         else:
             self.__current_split = split_number
 
         return self
 
     def write_to_disk(self, path=None):
+        """ write current classifier state to disk
+
+        :param path: string (optional), file path to store calassifier
+        :return: None
+        """
         try:
             with open('%s%s.pk' % (path, self.task), 'wb') as f:
                 pickle.dump(self.dict, f, pickle.HIGHEST_PROTOCOL)
@@ -289,6 +346,12 @@ class MyClassifier(ABC):
             print('could not write %s to disk: %s' % (self.task, [str(a) for a in e.args]))
 
     def _param(self, parameter):
+        """ retrieve parameter from current training split
+
+        :param parameter: string, key into dictionary of parameters
+        :raises KeyError, if key is not defined
+        :return: parameter
+        """
         try:
             return self.__cv_splits[self.__current_split].parameters[parameter]
         except KeyError as e:
@@ -296,20 +359,37 @@ class MyClassifier(ABC):
             return None
 
     def _set_betas(self, betas):
+        """ set beta values for current training split
+
+        :param betas: 1XD ndarray, beta values to set
+        :return:
+        """
         self.__cv_splits[self.__current_split].betas = betas
 
     def _set_param(self, param, value):
+        """ set parameter of current training split
+
+        :param param: string, key dictionary of parameters
+        :param value: any, value to associate with provided key
+        :return: None
+        """
         self.__cv_splits[self.__current_split].parameters[param] = value
 
     def __generate_splits(self, x_train, y_train, x_val, y_val):
-        if x_val is not None:
-            x = np.concatenate((x_train, x_val))
-        else:
-            x = x_train
+        """ generate training splits
 
-        if y_val is not None:
+        :param x_train: nXd ndarray, training samples
+        :param y_train: 1Xn ndarray, true training labels
+        :param x_val: nXd ndarray, validation samples
+        :param y_val: 1Xn ndarray, true validation labels
+        :return: x, y, [TrainingSplit]
+        """
+        # if
+        if x_val is not None and y_val is not None:
+            x = np.concatenate((x_train, x_val))
             y = np.concatenate((y_train, y_val))
         else:
+            x = x_train
             y = y_train
 
         splits, idx_set = [], {}
@@ -371,6 +451,11 @@ class MyClassifier(ABC):
         return x, y, splits
 
     def __load_from_dict(self, dict_rep):
+        """ load classifier from provided dictionary representation
+
+        :param dict_rep: dict, dictionary to load keys from
+        :return: None
+        """
         self.task = dict_rep['task']
         self.__x = dict_rep['x']
         self.__y = dict_rep['y']
