@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
-import numpy as np
 import datetime
+import numpy as np
 import os
 import pickle
 from sklearn.model_selection import KFold
+import threading
+import time
 
 
 class MyClassifier(ABC):
@@ -25,7 +27,8 @@ class MyClassifier(ABC):
             self.__x, self.__y, self.__cv_splits = self.__generate_splits(x_train, y_train, x_val, y_val)
 
         # setup cross-validation and logging features
-        self.__current_split = -1
+        self.__max_threads   = 10
+        self.__running_thrds = {}
         self.__logging_level = args[1]['logging_level'] if 'logging_level' in args[1].keys() else 'none'
         self.__log_path      = args[1]['log_path']      if 'log_path'      in args[1].keys() else ''
         self.__write_to_disk = args[1]['write_to_disk'] if 'write_to_disk' in args[1].keys() else False
@@ -48,31 +51,45 @@ class MyClassifier(ABC):
         yield
 
     def fit(self):
-        """ fit the classifier
+        """fit the classifier
+
         proceeds through each cross validation split, training each using the
         algorithm defined by the 'algo' key provided in parameters
 
-        :return: trained classifier
+        Returns:
+            trained classifier
         """
-        self.set_split(0)
+        semaphore = threading.Semaphore(self.__max_threads)
+        running_threads = 0
 
-        while True:
-            self._set_betas(np.zeros(self._d))
+        for i in range(len(self.__cv_splits)):
+            with semaphore:
+                running_threads += 1
 
-            algo = self.__cv_splits[self.__current_split].parameters['algo']
-            if algo == 'grad':
-                self.__grad_descent()
-            elif algo == 'fgrad':
-                self.__fast_grad_descent()
-            elif algo == 'random_cd':
-                raise NotImplemented('random coordinate descent not implemented')
-            elif algo == 'cyclic_cd':
-                raise NotImplemented('cyclic coordinate descent not implemented')
+                # setup running thread
+                thread = threading.currentThread()
+                thread_name = f'split_{str(i)}'
+                thread.setName(thread_name)
 
-            if self.__current_split != len(self.__cv_splits) - 1:
-                self.__current_split += 1
-            else:
-                break
+                self.__running_thrds[thread_name] = i
+
+                # start training
+                self._set_betas(np.zeros(self._d))
+
+                algo = self.__cv_splits[self.__current_split].parameters['algo']
+                if algo == 'grad':
+                    self.__grad_descent()
+                elif algo == 'fgrad':
+                    self.__fast_grad_descent()
+                elif algo == 'random_cd':
+                    raise NotImplemented('random coordinate descent not implemented')
+                elif algo == 'cyclic_cd':
+                    raise NotImplemented('cyclic coordinate descent not implemented')
+
+                running_threads -= 1
+
+        while running_threads != 0:
+            time.sleep(1)
 
         # write self to disk
         if self.__log_path is not None and self.__write_to_disk:
@@ -234,13 +251,16 @@ class MyClassifier(ABC):
             t = self.__backtracking(b0)
 
             b1 = theta - t * grad
-            theta = b1 + (i / (i + 3)) * (b1 - b0)
+            theta = b1 + (i/(i+3))*(b1-b0)
             grad = self._compute_grad(theta)
             b0 = b1
 
             i += 1
             self._set_betas(b0)
             self.log_metrics([self._param('lambda'), i, t, self._objective(b0)])
+
+            if np.isclose(0, t):
+                break
 
     # ---------------------------------------------------------------
     # miscellaneous methods
@@ -261,49 +281,42 @@ class MyClassifier(ABC):
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
     def log_metrics(self, args=None, prediction_func=None):
-        """ metrics logging
+        """metrics logging
 
-        :param args: list (optional), print string representations of each item in list,
-        comma delimited for csv output
+        Args
+            args ([obj]) - optional: list of additional metrics to print
+            prediction_func (function) - optional: prediction function
 
-        :param prediction_func: function (optional), include a different function to use
-        for production
-
-        :return: None
+        Returns
+            None
         """
         if self.__logging_level == 'none':
             return
 
+        train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
+        val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+
         # write basic classifier state
-        pstr = ','.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
-        arg_str = ','.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
+        pstr = ', '.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
+        arg_str = ', '.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
-        row = '%s,p%s,%s,%s,' % \
-              (datetime.datetime.now(), os.getpid(), self.task, self.__current_split) + pstr
+        # write row by current logging level
+        if self.__logging_level == 'minimal':
+            row = arg_str
 
-        # add columns based on current logging level
-        if self.__logging_level in ['all', 'reduced']:
-            train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
-            val_metrics   = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+        elif self.__logging_level == 'reduced':
+            row = f'{self.task}, {round(train_metrics.error, 4)}, {round(val_metrics.error, 4)}, {arg_str}'
 
-            self.__cv_splits[self.__current_split].train_metrics = train_metrics
-            self.__cv_splits[self.__current_split].val_metrics = val_metrics
-
-            if self.__logging_level == 'all':
-                row += ',%s,%s,%s' % (str(train_metrics), str(val_metrics), arg_str)
-            else:
-                row += ',%.4f,%.4f,%s' % (round(train_metrics.error, 4), round(val_metrics.error, 4), arg_str)
-
-        elif self.__logging_level == 'minimal':
-            row += arg_str
+        elif self.__logging_level == 'verbose':
+            row = f'{self.task}, {pstr}, {str(train_metrics)}, {str(val_metrics)}, {arg_str}'
 
         else:
             return
 
         # if there's a log queue managing multiple classifiers, forward the message
-        # to the managing process
         if self.__log_queue is not None:
             self.__log_queue.put(row)
+
         # otherwise print it to the console and output to csv
         else:
             print(row)
@@ -318,20 +331,6 @@ class MyClassifier(ABC):
         :return: None
         """
         self.__log_queue = queue
-
-    def set_split(self, split_number):
-        """ forcefully set the training split to use
-
-        :param split_number: int, training split number
-        :raises ValueError, if split number is not defined
-        :return: self
-        """
-        if not 0 <= split_number < len(self.__cv_splits):
-            raise ValueError('split not calculated')
-        else:
-            self.__current_split = split_number
-
-        return self
 
     def write_to_disk(self, path=None):
         """ write current classifier state to disk
@@ -361,10 +360,13 @@ class MyClassifier(ABC):
             return None
 
     def _set_betas(self, betas):
-        """ set beta values for current training split
+        """set beta values for current training split
 
-        :param betas: 1XD ndarray, beta values to set
-        :return:
+        Args:
+            betas (ndarray): 1Xd array of beta values to set
+
+        Returns:
+            None
         """
         self.__cv_splits[self.__current_split].betas = betas
 
@@ -505,6 +507,20 @@ class MyClassifier(ABC):
     @property
     def _y_val(self):
         return self.__y[self.__cv_splits[self.__current_split].val_idx]
+
+    @property
+    def __current_split(self):
+        try:
+            tid   = threading.current_thread()
+            split = self.__running_thrds.get(tid.getName(), -1)
+
+            if split == -1:
+                raise Exception('split not found')
+
+            return split
+        except threading.ThreadError as e:
+            print([str(a) for a in e.args])
+            raise threading.ThreadError()
 
 
 # ---------------------------------------------------------------

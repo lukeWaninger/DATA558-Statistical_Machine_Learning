@@ -10,7 +10,7 @@ import pandas as pd
 import time
 
 
-class MultiClassifier:
+class MultiClassifier(object):
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
                  classification_method='ovr', n_jobs=-1, log_path='', logging_level='none'):
 
@@ -278,6 +278,7 @@ class MultiClassifier:
                 running -= 1
 
             else:
+                print(message)
                 try:
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")

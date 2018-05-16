@@ -55,9 +55,9 @@ def ex2():
 
     x_train = np.load(p1 + 'train_features.npy')
     y_train = np.load(p1 + 'train_labels.npy')
-    x_val = np.load(p1 + 'val_features.npy')
-    y_val = np.load(p1 + 'val_labels.npy')
-    x_test = np.load(p1 + 'test_features.npy')
+    x_val   = np.load(p1 + 'val_features.npy')
+    y_val   = np.load(p1 + 'val_labels.npy')
+    x_test  = np.load(p1 + 'test_features.npy')
 
     parameters = {
         'classifiers': [
@@ -100,7 +100,7 @@ def ex2():
 
     # train
     clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
-                          x_val=x_val, y_val=y_val, n_jobs=-1,
+                          x_val=x_val, y_val=y_val, n_jobs=1,
                           classification_method='all_pairs',
                           log_path='./',
                           logging_level='reduced')
