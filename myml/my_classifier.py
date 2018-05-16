@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import datetime
 import numpy as np
-import os
 import pickle
 from sklearn.model_selection import KFold
 import threading
@@ -27,8 +26,7 @@ class MyClassifier(ABC):
             self.__x, self.__y, self.__cv_splits = self.__generate_splits(x_train, y_train, x_val, y_val)
 
         # setup cross-validation and logging features
-        self.__max_threads   = 10
-        self.__running_thrds = {}
+        self.__thread_split_map = {}
         self.__logging_level = args[1]['logging_level'] if 'logging_level' in args[1].keys() else 'none'
         self.__log_path      = args[1]['log_path']      if 'log_path'      in args[1].keys() else ''
         self.__write_to_disk = args[1]['write_to_disk'] if 'write_to_disk' in args[1].keys() else False
@@ -59,36 +57,16 @@ class MyClassifier(ABC):
         Returns:
             trained classifier
         """
-        semaphore = threading.Semaphore(self.__max_threads)
-        running_threads = 0
-
         for i in range(len(self.__cv_splits)):
-            with semaphore:
-                running_threads += 1
+            # setup running thread
+            thread = threading.Thread(target=self.fit_one)
+            thread_name = f'split_{str(i)}'
+            thread.setName(thread_name)
 
-                # setup running thread
-                thread = threading.currentThread()
-                thread_name = f'split_{str(i)}'
-                thread.setName(thread_name)
+            self.__thread_split_map[thread_name] = i
+            thread.start()
 
-                self.__running_thrds[thread_name] = i
-
-                # start training
-                self._set_betas(np.zeros(self._d))
-
-                algo = self.__cv_splits[self.__current_split].parameters['algo']
-                if algo == 'grad':
-                    self.__grad_descent()
-                elif algo == 'fgrad':
-                    self.__fast_grad_descent()
-                elif algo == 'random_cd':
-                    raise NotImplemented('random coordinate descent not implemented')
-                elif algo == 'cyclic_cd':
-                    raise NotImplemented('cyclic coordinate descent not implemented')
-
-                running_threads -= 1
-
-        while running_threads != 0:
+        while len(self.__thread_split_map.keys()) != 0:
             time.sleep(1)
 
         # write self to disk
@@ -96,6 +74,22 @@ class MyClassifier(ABC):
             self.write_to_disk(self.__log_path)
 
         return self
+
+    def fit_one(self):
+        self._set_betas(np.zeros(self._d))
+
+        algo = self.__cv_splits[self.__current_split].parameters['algo']
+        if algo == 'grad':
+            self.__grad_descent()
+        elif algo == 'fgrad':
+            self.__fast_grad_descent()
+        elif algo == 'random_cd':
+            raise NotImplemented('random coordinate descent not implemented')
+        elif algo == 'cyclic_cd':
+            raise NotImplemented('cyclic coordinate descent not implemented')
+
+        thread_name = threading.currentThread().getName()
+        del self.__thread_split_map[thread_name]
 
     def predict_with_best_fold(self, x, metric='error'):
         """ predict the given labels
@@ -290,11 +284,14 @@ class MyClassifier(ABC):
         Returns
             None
         """
-        if self.__logging_level == 'none':
-            return
-
         train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
         val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+
+        self.__cv_splits[self.__current_split].train_metrics = train_metrics
+        self.__cv_splits[self.__current_split].val_metrics = val_metrics
+
+        if self.__logging_level == 'none':
+            return
 
         # write basic classifier state
         pstr = ', '.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
@@ -305,10 +302,18 @@ class MyClassifier(ABC):
             row = arg_str
 
         elif self.__logging_level == 'reduced':
-            row = f'{self.task}, {round(train_metrics.error, 4)}, {round(val_metrics.error, 4)}, {arg_str}'
+            row = f'{self.task}, ' \
+                  f'{round(train_metrics.error, 4)}, ' \
+                  f'{round(val_metrics.error, 4)}, ' \
+                  f'{arg_str}'
 
         elif self.__logging_level == 'verbose':
-            row = f'{self.task}, {pstr}, {str(train_metrics)}, {str(val_metrics)}, {arg_str}'
+            row = f'{datetime.datetime.now()}, ' \
+                  f'{self.task}, ' \
+                  f'{pstr}, ' \
+                  f'{str(train_metrics)}, ' \
+                  f'{str(val_metrics)}, ' \
+                  f'{arg_str}'
 
         else:
             return
@@ -512,7 +517,7 @@ class MyClassifier(ABC):
     def __current_split(self):
         try:
             tid   = threading.current_thread()
-            split = self.__running_thrds.get(tid.getName(), -1)
+            split = self.__thread_split_map.get(tid.getName(), -1)
 
             if split == -1:
                 raise Exception('split not found')

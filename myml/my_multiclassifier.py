@@ -11,7 +11,7 @@ import time
 
 
 class MultiClassifier(object):
-    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None,
+    def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None, task='',
                  classification_method='ovr', n_jobs=-1, log_path='', logging_level='none'):
 
         # calculate and set designated number of processes or max if n_jobs is -1
@@ -35,7 +35,7 @@ class MultiClassifier(object):
         self.__completion_queue = self.__manager.Queue()
         self.__snd, self.__rcv = multiprocessing.Pipe()
 
-        self.task = classification_method
+        self.task = task
         self.cvs = self.__build_classifiers()
 
     def fit(self):
@@ -62,7 +62,7 @@ class MultiClassifier(object):
                                              args=(cv, self.__snd, self.__completion_queue))
             workers.append(worker)
             worker.start()
-            time.sleep(3)
+            time.sleep(.01)
 
             self.__available_procs -= 1
 
@@ -267,7 +267,7 @@ class MultiClassifier(object):
         :return: None
         """
         start = time.time()
-        path = '%s/training_log_%s_%s.csv' % (self.__log_path, self.task, str(int(time.time())))
+        path = f'{self.__log_path}/{self.task}.csv'
 
         # continue until no child processes are running
         running = len(self.cvs)

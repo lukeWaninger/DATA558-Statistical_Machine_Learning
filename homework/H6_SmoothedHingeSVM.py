@@ -1,4 +1,5 @@
 from myml.my_multiclassifier import MultiClassifier
+import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
@@ -37,12 +38,17 @@ def ex1():
         ]
     }
 
-    clf = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
-                          x_val=x_test, y_val=y_test, n_jobs=1,
-                          classification_method='all_pairs',
-                          log_path='.',
-                          logging_level='reduced')
-    clf.fit()
+    MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
+                    x_val=x_test, y_val=y_test, n_jobs=-1,
+                    classification_method='all_pairs', task='ex1a',
+                    log_path='.', logging_level='reduced').fit()
+
+    # use cross val to find the optimal value of lambda
+    parameters['classifiers'][0]['parameters']['lambda'] = list(np.linspace(0.001, 1., 10))
+    MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
+                    x_val=x_test, y_val=y_test, n_jobs=-1,
+                    classification_method='all_pairs', task='ex1b',
+                    log_path='.', logging_level='reduced').fit()
 
 
 if __name__ == '__main__':
