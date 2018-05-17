@@ -8,7 +8,18 @@ import time
 
 
 class MyClassifier(ABC):
+    """my classifier base class"""
+
     def __init__(self, x_train, y_train, parameters, *args, **kwargs):
+        """
+
+        Args:
+            x_train (ndarray): nXd array of input samples
+            y_train (ndarray: nX1 array of training labels
+            parameters (dictionary): child class parameters
+            *args:
+            **kwargs:
+        """
         # load this classifier from the dict representation if provided
         if 'dict_rep' in args[1].keys():
             self.__load_from_dict(args[1]['dict_rep'])
@@ -28,9 +39,9 @@ class MyClassifier(ABC):
         # setup cross-validation and logging features
         self.__thread_split_map = {}
         self.__logging_level = args[1]['logging_level'] if 'logging_level' in args[1].keys() else 'none'
-        self.__log_path      = args[1]['log_path']      if 'log_path'      in args[1].keys() else ''
+        self.__log_path = args[1]['log_path'] if 'log_path' in args[1].keys() else ''
         self.__write_to_disk = args[1]['write_to_disk'] if 'write_to_disk' in args[1].keys() else False
-        self.__log_queue     = args[1]['loq_queue']     if 'loq_queue'     in args[1].keys() else None
+        self.__log_queue = args[1]['loq_queue'] if 'loq_queue' in args[1].keys() else None
 
     @abstractmethod
     def _compute_grad(self, beta):
@@ -54,7 +65,7 @@ class MyClassifier(ABC):
         proceeds through each cross validation split, training each using the
         algorithm defined by the 'algo' key provided in parameters
 
-        Returns:
+        Returns
             trained classifier
         """
         for i in range(len(self.__cv_splits)):
@@ -76,6 +87,7 @@ class MyClassifier(ABC):
         return self
 
     def fit_one(self):
+        """fit a single training fold"""
         self._set_betas(np.zeros(self._d))
 
         algo = self.__cv_splits[self.__current_split].parameters['algo']
@@ -128,7 +140,7 @@ class MyClassifier(ABC):
         print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
 
         thread_name = threading.current_thread().getName()
-        self.__thread_split_map[thread_name] = len(self.__cv_splits)-1
+        self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
 
         self._set_param('eta', 1.)
         self.fit_one()
@@ -139,13 +151,15 @@ class MyClassifier(ABC):
         return self.predict(x)
 
     def __compute_metrics(self, x, y, prediction_func=None):
-        """ compute metrics at the current classifier state
+        """compute metrics at the current classifier state
 
-        :param x: nXd ndarray, input samples
-        :param y: nX1 ndarray, true labels
-        :param prediction_func: function (optional), provide an alternative function
-        to use for prediction. must return labels {-1, 1}
-        :return: MetricSet, containing classifier performance metrics
+        Args
+            x (ndarray): nXd array of input samples
+            y (ndarray): nX1 of true labels
+            prediction_func (function) - optional: prediction function
+
+        Returns
+            MetricSet: containing classifier performance metrics
         """
         if x is None and y is None:
             return MetricSet()
@@ -155,45 +169,49 @@ class MyClassifier(ABC):
         else:
             pre = prediction_func(x)
 
-        p  = np.sum(y ==  1)
-        n  = np.sum(y == -1)
-        tp = np.sum([yh ==  1 and yt ==  1 for yh, yt in zip(pre, y)])
+        p = np.sum(y == 1)
+        n = np.sum(y == -1)
+        tp = np.sum([yh == 1 and yt == 1 for yh, yt in zip(pre, y)])
         tn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
-        fp = np.sum([yh ==  1 and yt == -1 for yh, yt in zip(pre, y)])
+        fp = np.sum([yh == 1 and yt == -1 for yh, yt in zip(pre, y)])
 
         # accuracy, error, recall, tpr, fpr
         if p == 0 or n == 0:
             acc = rec = tpr = fpr = 0
         else:
-            acc = (tp+tn)/(p+n)
+            acc = (tp + tn) / (p + n)
             rec = tp / p
             tpr = rec
             fpr = fp / n
-        err = 1-acc
-        specificity = 1-fpr
+        err = 1 - acc
+        specificity = 1 - fpr
 
         # precision
         if tp == 0 or fp == 0:
             prec = 0
         else:
-            prec = tp/(tp+fp)
+            prec = tp / (tp + fp)
 
         # f1 measure
         if prec == 0 or rec == 0:
             f1 = 0
         else:
-            f1  = 2/(prec**-1 + rec**-1)
+            f1 = 2 / (prec ** -1 + rec ** -1)
 
         return MetricSet(acc=acc, err=err, pre=prec, rec=rec,
                          f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
 
     def __backtracking(self, beta):
-        """ backtracking line search
+        """backtracking line search
+
         use the provided beta values to determine optimum learning rate for
         current iteration
 
-        :param beta: 1xD ndarray, betas for current optimization point
-        :return:
+        Args
+            beta (ndarray): 1xD array of weight coefficients
+
+        Return
+            Float: learning rate
         """
         p = self._param
         a, t, t_eta, max_iter = p('alpha'), p('eta'), p('t_eta'), p('bt_max_iter')
@@ -203,8 +221,8 @@ class MyClassifier(ABC):
 
         found_t, i = False, 0
         while not found_t and i < max_iter:
-            lh = self._objective(beta - t*gb)
-            rh = self._objective(beta) - a*t*n_gb**2
+            lh = self._objective(beta - t * gb)
+            rh = self._objective(beta) - a * t * n_gb ** 2
             if lh < rh:
                 found_t = True
             elif i == max_iter - 1:
@@ -217,12 +235,10 @@ class MyClassifier(ABC):
         return t
 
     def __grad_descent(self, beta=None):
-        """ gradient descent
+        """gradient descent
 
-        :param beta: 1XD ndarray (optional), if not provided beta's will begin fitting
-        from initial zeros
-
-        :return: None
+        Args
+            beta (ndarray) - optional: 1Xd array of weight coefficients
         """
         x, y, eta, max_iter = self._x, self._y, self._param('eta'), self._param('max_iter')
         if beta is None:
@@ -239,10 +255,9 @@ class MyClassifier(ABC):
             self.log_metrics([i, self._objective(beta)])
 
     def __fast_grad_descent(self):
-        """ fast-gradient descent
-        perform gradient descent with the fast-gradient algorithm
+        """fast-gradient descent
 
-        :return: None
+        perform gradient descent with the fast-gradient algorithm
         """
         eps, max_iter = self._param('eps'), self._param('max_iter')
 
@@ -255,7 +270,7 @@ class MyClassifier(ABC):
             t = self.__backtracking(b0)
 
             b1 = theta - t * grad
-            theta = b1 + (i/(i+3))*(b1-b0)
+            theta = b1 + (i / (i + 3)) * (b1 - b0)
             grad = self._compute_grad(theta)
             b0 = b1
 
@@ -270,11 +285,11 @@ class MyClassifier(ABC):
     # miscellaneous methods
     # ---------------------------------------------------------------
     def load_from_disk(self, path):
-        """ load the classifier from disk
+        """load the classifier from disk
 
-        :param path: string, path to classifier file location. name should match current
-        classifier task
-        :return: None
+        Args
+            path (str): path to classifier file location. name
+            should match current classifier task
         """
         try:
             with open('%s%s.pk' % (path, self.task), 'rb') as f:
@@ -344,18 +359,18 @@ class MyClassifier(ABC):
                     f.writelines(row + '\n')
 
     def set_log_queue(self, queue):
-        """ set queue for logging metrics
+        """set queue for logging metrics
 
-        :param queue: multiprocessing.Queue(), set the managing log queue
-        :return: None
+        Args
+            queue (multiprocessing.Queue): set the managing log queue
         """
         self.__log_queue = queue
 
     def write_to_disk(self, path=None):
-        """ write current classifier state to disk
+        """write current classifier state to disk
 
-        :param path: string (optional), file path to store calassifier
-        :return: None
+        Args
+            path (str) - optional: file path to store calassifier
         """
         try:
             with open('%s%s.pk' % (path, self.task), 'wb') as f:
@@ -366,11 +381,16 @@ class MyClassifier(ABC):
             print('could not write %s to disk: %s' % (self.task, [str(a) for a in e.args]))
 
     def _param(self, parameter):
-        """ retrieve parameter from current training split
+        """retrieve parameter from current training split
 
-        :param parameter: string, key into dictionary of parameters
-        :raises KeyError, if key is not defined
-        :return: parameter
+        Args
+            parameter (str): key into dictionary of parameters
+
+        Raises
+            KeyError: if key is not defined
+
+        Returns
+            object: parameter
         """
         try:
             return self.__cv_splits[self.__current_split].parameters[parameter]
@@ -381,31 +401,34 @@ class MyClassifier(ABC):
     def _set_betas(self, betas):
         """set beta values for current training split
 
-        Args:
+        Args
             betas (ndarray): 1Xd array of beta values to set
 
-        Returns:
+        Returns
             None
         """
         self.__cv_splits[self.__current_split].betas = betas
 
     def _set_param(self, param, value):
-        """ set parameter of current training split
+        """set parameter of current training split
 
-        :param param: string, key dictionary of parameters
-        :param value: any, value to associate with provided key
-        :return: None
+        Adrgs
+            param (str): dictionary key to set
+            value (object): value to associate with provided key
         """
         self.__cv_splits[self.__current_split].parameters[param] = value
 
     def __generate_splits(self, x_train, y_train, x_val, y_val):
-        """ generate training splits
+        """generate training splits
 
-        :param x_train: nXd ndarray, training samples
-        :param y_train: 1Xn ndarray, true training labels
-        :param x_val: nXd ndarray, validation samples
-        :param y_val: 1Xn ndarray, true validation labels
-        :return: x, y, [TrainingSplit]
+        Args
+            x_train: nXd ndarray, training samples
+            y_train: 1Xn ndarray, true training labels
+            x_val: nXd ndarray, validation samples
+            y_val: 1Xn ndarray, true validation labels
+
+        Returns
+            (x, y, [TrainingSplit])
         """
         # if
         if x_val is not None and y_val is not None:
@@ -474,10 +497,10 @@ class MyClassifier(ABC):
         return x, y, splits
 
     def __load_from_dict(self, dict_rep):
-        """ load classifier from provided dictionary representation
+        """load classifier from provided dictionary representation
 
-        :param dict_rep: dict, dictionary to load keys from
-        :return: None
+        Args
+            dict_rep (dict): dictionary to load keys from
         """
         self.task = dict_rep['task']
         self.__x = dict_rep['x']
@@ -529,8 +552,19 @@ class MyClassifier(ABC):
 
     @property
     def __current_split(self):
+        """retrieve split number
+
+        matches thread name to dictionary map of training splits
+
+        Returns
+            int: training split
+
+        Raises
+            Exception: if the thread doesn't have an associated split number
+            ThreadError: re raised
+        """
         try:
-            tid   = threading.current_thread()
+            tid = threading.current_thread()
             split = self.__thread_split_map.get(tid.getName(), -1)
 
             if split == -1:

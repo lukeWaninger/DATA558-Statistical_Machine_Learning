@@ -61,7 +61,7 @@ def ex1():
     #     f.write(f'validation error when labmda = 1: {str(error)}\n')
 
     # use cross val to find the optimal value of lambda
-    parameters = {
+    pset51 = {
         'classifiers': [
             {
                 'type': 'linear_svm',
@@ -73,9 +73,129 @@ def ex1():
                     'bt_max_iter': [50],
                     'eps':   [.001],
                     'eta':   [1.],
-                    'lambda':   list(np.linspace(0.001, 1., 35)),
+                    'lambda':   list(np.linspace(0.001, 1., 25)),
                     'max_iter': [100],
                     't_eta':    [0.8]
+                }
+            }
+        ]
+    }
+
+    pset46 = {
+        'classifiers': [
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.001, .01, 10)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
+                }
+            },
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.01, .1, 10)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
+                }
+            },
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.1, 1., 10)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
+                }
+            }
+        ]
+    }
+
+    pset60 = {
+        'classifiers': [
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.001, 1., 25)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
+                }
+            },
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['squared_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.001, 1., 25)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
+                }
+            }
+        ]
+    }
+
+    parameters = {
+        'classifiers': [
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.001, .1, 25)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
+                }
+            },
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': list(np.linspace(0.1, 1., 25)),
+                    'max_iter': [100],
+                    't_eta': [0.8]
                 }
             }
         ]
@@ -90,7 +210,7 @@ def ex1():
     error = np.mean(predictions == y_val)
 
     with open('ex1.txt', 'a+') as f:
-        f.write(f'validation error when lambda is found through cross validation: {str(error)}\n')
+        f.write(f'cv: {str(error)}\n')
 
 
 if __name__ == '__main__':

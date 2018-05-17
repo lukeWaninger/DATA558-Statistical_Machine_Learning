@@ -18,21 +18,21 @@ class MultiClassifier(object):
         """class constructor
 
         Args:
-            x_train:
-            y_train:
-            parameters:
-            x_val:
-            y_val:
-            task:
-            classification_method:
-            n_jobs:
-            log_path:
-            logging_level:
+            x_train (ndarry): nXd array of input samples
+            y_train (ndarry: nX1 array of true labels
+            parameters (dictionary):
+            x_val (ndarry): nXd arrray of validation samples
+            y_val (ndarray): nXd array of validation labels
+            task (str): name of task for writing
+            classification_method (str): {ovr, all_pairs}
+            n_jobs (int): number of processors to use
+            log_path (path): path to save log files
+            logging_level (path): {minimal, reduced, verbose}
         """
         # calculate and set designated number of processes or max if n_jobs is -1
         cpu_count = multiprocessing.cpu_count()
         if n_jobs == -1 or n_jobs >= cpu_count:
-            self.__available_procs = cpu_count
+            self.__available_procs = cpu_count*2
         else:
             self.__available_procs = n_jobs
 
@@ -78,7 +78,7 @@ class MultiClassifier(object):
                                              args=(cv, self.__snd, self.__completion_queue))
             workers.append(worker)
             worker.start()
-            time.sleep(.01)
+            time.sleep(np.random.uniform(0, .02))
 
             self.__available_procs -= 1
 
@@ -178,10 +178,13 @@ class MultiClassifier(object):
             raise ValueError('classification method not found')
 
     def __build_classifiers(self):
-        """ build the classifiers for either one-vs-rest or all-pairs
+        """build the classifiers for either one-vs-rest or all-pairs
 
-        :raises: ValueError, if designated classifier model is not found
-        :return: [MyClassifier], list of classifiers
+        Returns
+            ([MyClassifier]): list of classifiers
+
+        Raises
+            ValueError: if designated classifier model is not found
         """
         cvs, x_idx, x_idx_v, y_v, x_v = [], [], [], [], []
 
