@@ -3,10 +3,10 @@ from myml.mlogreg import MyLogisticRegression
 from myml.mridgereg import MyRidgeRegression
 from myml.mlinear_svm import MyLinearSVM
 import multiprocessing
-from scipy.stats import mode
 import numpy as np
 import os
 import pandas as pd
+from scipy.stats import mode
 import time
 
 
