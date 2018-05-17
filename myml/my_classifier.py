@@ -116,20 +116,21 @@ class MyClassifier(ABC):
             raise ValueError('provided metric is not defined')
 
         # create a new split with parameters from the best
-        self.__cv_splits.append(
-            TrainingSplit(
-                n=self.__x.shape[0],
-                d=self.__x.shape[1],
-                train_idx=np.arange(self.__x.shape[0]),
-                parameters=splits[idx].parameters
-            )
+        new_split = TrainingSplit(
+            n=self.__x.shape[0],
+            d=self.__x.shape[1],
+            train_idx=np.arange(self.__x.shape[0]),
+            parameters=splits[idx].parameters
         )
+        self.__cv_splits.append(new_split)
 
         # train with the identified parameter set
         print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
 
         thread_name = threading.current_thread().getName()
         self.__thread_split_map[thread_name] = len(self.__cv_splits)-1
+
+        self._set_param('eta', 1.)
         self.fit_one()
 
         # set it back because fit_one deleted the dictionary entry

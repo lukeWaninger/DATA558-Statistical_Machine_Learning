@@ -11,9 +11,24 @@ import time
 
 
 class MultiClassifier(object):
+    """classifier for multi-class classification"""
+
     def __init__(self, x_train, y_train, parameters, x_val=None, y_val=None, task='',
                  classification_method='ovr', n_jobs=-1, log_path='', logging_level='none'):
+        """class constructor
 
+        Args:
+            x_train:
+            y_train:
+            parameters:
+            x_val:
+            y_val:
+            task:
+            classification_method:
+            n_jobs:
+            log_path:
+            logging_level:
+        """
         # calculate and set designated number of processes or max if n_jobs is -1
         cpu_count = multiprocessing.cpu_count()
         if n_jobs == -1 or n_jobs >= cpu_count:
@@ -39,9 +54,10 @@ class MultiClassifier(object):
         self.cvs = self.__build_classifiers()
 
     def fit(self):
-        """ fit the classifier
+        """fit the classifier
 
-        :return: self
+        Returns
+            self
         """
         # create and start a process to manage logging across all child classifiers
         log_manager = multiprocessing.Process(target=self.__log_manager,
@@ -103,20 +119,28 @@ class MultiClassifier(object):
         return self
 
     def output_predictions(self, x):
-        """ predict and output predictions to file
+        """predict and output predictions to file
 
-        :param x: nXd ndarray, samples to predict
-        :return: None
+        Args
+            x (ndarray): nXd array of samples to predict
+
+        Returns
+            None
         """
         predictions = self.predict(x)
         pd.DataFrame(predictions).to_csv(self.__log_path)
 
     def predict(self, x):
-        """ predict labels for provided samples
+        """predict labels for provided samples
 
-        :param x: nXd ndarray, samples to predict
-        :raises ValueError: if current classification method is not defined
-        :return: list {-1, 1}, predicted labels
+        Args
+            x (ndarray): nXd array of samples to predict
+
+        Raises
+            ValueError: if current classification method is not defined
+
+        Returns
+            [({-1, 1})]: list of predicted labels
         """
         # predict using one-versus-rest algorithm
         if self.__classification_method == 'ovr':
@@ -239,10 +263,12 @@ class MultiClassifier(object):
         return cvs
 
     def __get_training_sets(self):
-        """ generate training sets
+        """generate training sets
+
         generates training sets based on the defined classification method
 
-        :return: [(a,b)], list of tuples
+        Returns
+            [(a,b)], list of tuples
         """
         classes = [str(c) for c in np.unique(self.__y)]
         pairs = []
@@ -259,12 +285,16 @@ class MultiClassifier(object):
         return pairs
 
     def __log_manager(self, log_queue, conn):
-        """ log manager
+        """log manager
+
         controlling process for child classifiers to route log messages through
 
-        :param log_queue: multiprocessing.Queue(), queue to receive child log messages
-        :param conn: multiprocessing.Pipe(), pipe to send termination message to parent process
-        :return: None
+        Args
+            log_queue (multiprocessing.Queue): queue to receive child log messages
+            conn (multiprocessing.Pipe): pipe to send termination message to parent process
+
+        Returns
+            None
         """
         start = time.time()
         path = f'{self.__log_path}/{self.task}.csv'
@@ -278,7 +308,7 @@ class MultiClassifier(object):
                 running -= 1
 
             else:
-                print(message)
+                #print(message)
                 try:
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")
@@ -293,14 +323,17 @@ class MultiClassifier(object):
         conn.send(True)
 
     def __train_one(self, cv, conn, queue):
-        """ train a single classifier
+        """train a single classifier
+
         child process to train a single child classifier
 
-        :param cv: MyClassifier, classifier to fit
-        :param conn: multiprocessing.Pipe(), pipe to send success message to parent process
-        :param queue: multiprocessing.Queue(), the queue to pass completed classifers back
-        to parent process
-        :return: None
+        Args
+            cv (MyClassifier): classifier to fit
+            conn (multiprocessing.Pipe): pipe to send success message to parent process
+            queue (multiprocessing.Queue): pass completed classifers back to parent process
+
+        Returns
+            None
         """
         start = time.time()
 
