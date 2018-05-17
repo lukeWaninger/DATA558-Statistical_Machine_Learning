@@ -92,16 +92,20 @@ class MyClassifier(ABC):
         del self.__thread_split_map[thread_name]
 
     def predict_with_best_fold(self, x, metric='error'):
-        """ predict the given labels
+        """predict the given labels
+
         uses the provided metric to determine which fold to extract parameters.
         once identified, a new fold is generated and trained using those parameters.
 
-        :param x: nXd ndarray, the samples to predict
-        :param metric: string (optional), metric to use for finding the optimal
-        parameter est. possibilities are {'accuracy', 'error', 'precision', 'recall',
-        'specificity', 'f1_measure', 'fpr', 'tpr'}
-        :raise: ValueError, if provided metric is not defined
-        :return: list, predictions {-1, 1}
+        Args
+            x (ndarray): nXd array of samples to predict
+            metric (str) - optional: metric to use for finding the optimal
+
+        Returns
+            [({-1, 1})]: list of predictions
+
+        Raises
+            ValueError: if provided metric is not defined
         """
         splits = self.__cv_splits
         if metric in ['fpr', 'error']:
@@ -121,11 +125,16 @@ class MyClassifier(ABC):
             )
         )
 
-        # train with the identified paramater set
+        # train with the identified parameter set
         print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
-        self.__current_split = len(self.__cv_splits)-1
-        self.fit()
 
+        thread_name = threading.current_thread().getName()
+        self.__thread_split_map[thread_name] = len(self.__cv_splits)-1
+        self.fit_one()
+
+        # set it back because fit_one deleted the dictionary entry
+        thread_name = threading.current_thread().getName()
+        self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
         return self.predict(x)
 
     def __compute_metrics(self, x, y, prediction_func=None):
@@ -284,11 +293,14 @@ class MyClassifier(ABC):
         Returns
             None
         """
-        train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
-        val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+        split = self.__current_split
 
-        self.__cv_splits[self.__current_split].train_metrics = train_metrics
-        self.__cv_splits[self.__current_split].val_metrics = val_metrics
+        train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
+        self.__cv_splits[split].train_metrics = train_metrics
+
+        if self.__cv_splits[split].val_idx is not None:
+            val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+            self.__cv_splits[split].val_metrics = val_metrics
 
         if self.__logging_level == 'none':
             return
@@ -298,13 +310,14 @@ class MyClassifier(ABC):
         arg_str = ', '.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
         # write row by current logging level
+        no_val_set = 'no_val_set'
         if self.__logging_level == 'minimal':
             row = arg_str
 
         elif self.__logging_level == 'reduced':
             row = f'{self.task}, ' \
                   f'{round(train_metrics.error, 4)}, ' \
-                  f'{round(val_metrics.error, 4)}, ' \
+                  f'{round(val_metrics.error, 4) if val_metrics is not None else no_val_set}, ' \
                   f'{arg_str}'
 
         elif self.__logging_level == 'verbose':
