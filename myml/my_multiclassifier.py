@@ -128,7 +128,10 @@ class MultiClassifier(object):
             None
         """
         predictions = self.predict(x)
-        pd.DataFrame(predictions).to_csv(self.__log_path)
+        predictions = [(i, p) for i, p in enumerate(predictions)]
+        pd.DataFrame(predictions).to_csv(f'{self.__log_path}/{self.task}.csv',
+                                         index=None,
+                                         header=['Id', 'Category'])
 
     def predict(self, x):
         """predict labels for provided samples
@@ -146,7 +149,7 @@ class MultiClassifier(object):
         if self.__classification_method == 'ovr':
             predictions = []
             for cv in self.cvs:
-                predictions.append(cv.predict_proba(x))
+                predictions.append(cv.predict_with_best_fold(x, proba=True))
 
             predictions = np.array(predictions).T
             predictions = [np.argmax(p) for p in predictions]
@@ -311,7 +314,7 @@ class MultiClassifier(object):
                 running -= 1
 
             else:
-                #print(message)
+                print(message)
                 try:
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")

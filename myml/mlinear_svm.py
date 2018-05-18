@@ -44,6 +44,9 @@ class MyLinearSVM(MyClassifier):
         Returns
             [float]: list of n probabilities
         """
+        if beta is None:
+            beta = self.coef_
+
         return x@beta
 
     def _objective(self, beta):

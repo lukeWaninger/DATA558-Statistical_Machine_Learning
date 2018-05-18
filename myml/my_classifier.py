@@ -103,7 +103,7 @@ class MyClassifier(ABC):
         thread_name = threading.currentThread().getName()
         del self.__thread_split_map[thread_name]
 
-    def predict_with_best_fold(self, x, metric='error'):
+    def predict_with_best_fold(self, x, metric='error', proba=False):
         """predict the given labels
 
         uses the provided metric to determine which fold to extract parameters.
@@ -120,35 +120,57 @@ class MyClassifier(ABC):
             ValueError: if provided metric is not defined
         """
         splits = self.__cv_splits
+        pretrained = False
+        func = np.argmin
+        metrics = []
+
+        # determine the best metric to use
         if metric in ['fpr', 'error']:
-            idx = np.argmin([s.val_metrics.dict[metric] for s in splits])
-        elif metric in ['accuracy', 'precision', 'recall', 'specificity', 'f1_measure', 'tpr']:
-            idx = np.argmax([s.val_metrics.dict[metric] for s in splits])
+            func = np.argmin
+        elif metric in ['accuracy', 'precision', 'recall', 'specificity', 'f1_measure', 'tpr']
+            func = np.argmax
         else:
             raise ValueError('provided metric is not defined')
 
-        # create a new split with parameters from the best
-        new_split = TrainingSplit(
-            n=self.__x.shape[0],
-            d=self.__x.shape[1],
-            train_idx=np.arange(self.__x.shape[0]),
-            parameters=splits[idx].parameters
-        )
-        self.__cv_splits.append(new_split)
+        # get all those metrics, unless one without validation metrics
+        # is found. In that case, the best params have already been trained
+        for s in splits:
+            if s.val_metrics is None:
+                pretrained = True
+                break
+            else:
+                metrics.append(s.val_metrics.dict[metric])
 
-        # train with the identified parameter set
-        print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
+        # if the best params haven't been trained, train
+        if not pretrained:
+            idx = func(metrics)
 
+            # create a new split with parameters from the best
+            new_split = TrainingSplit(
+                n=self.__x.shape[0],
+                d=self.__x.shape[1],
+                train_idx=np.arange(self.__x.shape[0]),
+                parameters=splits[idx].parameters
+            )
+            self.__cv_splits.append(new_split)
+
+            # train with the identified parameter set
+            print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
+
+            thread_name = threading.current_thread().getName()
+            self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
+
+            self._set_param('eta', 1.)
+            self.fit_one()
+        else:
+            pass
+
+        # set the correct thread for prediction
         thread_name = threading.current_thread().getName()
         self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
 
-        self._set_param('eta', 1.)
-        self.fit_one()
-
-        # set it back because fit_one deleted the dictionary entry
-        thread_name = threading.current_thread().getName()
-        self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
-        return self.predict(x)
+        # return labels or probabilities
+        return self.predict(x) if not proba else self.predict_proba(x)
 
     def __compute_metrics(self, x, y, prediction_func=None):
         """compute metrics at the current classifier state

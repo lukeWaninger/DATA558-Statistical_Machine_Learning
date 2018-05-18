@@ -30,35 +30,35 @@ def ex1():
     x_test  = scalar.transform(x_test)
     x_val   = scalar.transform(x_val)
 
-    # parameters = {
-    #     'classifiers': [
-    #         {
-    #             'type': 'linear_svm',
-    #             'parameters': {
-    #                 'loss':  ['smoothed_hinge'],
-    #                 'h':     [0.5],
-    #                 'algo':  ['fgrad'],
-    #                 'alpha': [0.5],
-    #                 'bt_max_iter': [50],
-    #                 'eps':   [.001],
-    #                 'eta':   [1.],
-    #                 'lambda':   [1.],
-    #                 'max_iter': [100],
-    #                 't_eta':    [0.8]
-    #             }
-    #         }
-    #     ]
-    # }
-    #
-    # cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
-    #                      x_val=x_test, y_val=y_test, n_jobs=-1,
-    #                      classification_method='all_pairs', task='ex1a',
-    #                      log_path='.', logging_level='reduced').fit()
-    #
-    # predictions = cv.predict(x_val)
-    # error = 1-np.mean(predictions == y_val)
-    # with open('ex1.txt', 'a+') as f:
-    #     f.write(f'validation error when labmda = 1: {str(error)}\n')
+    ex1_parameters = {
+        'classifiers': [
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss':  ['smoothed_hinge'],
+                    'h':     [0.5],
+                    'algo':  ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps':   [.001],
+                    'eta':   [1.],
+                    'lambda':   [1.],
+                    'max_iter': [100],
+                    't_eta':    [0.8]
+                }
+            }
+        ]
+    }
+
+    cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex1_parameters,
+                         x_val=x_test, y_val=y_test, n_jobs=-1,
+                         classification_method='all_pairs', task='ex1a',
+                         log_path='.', logging_level='reduced').fit()
+
+    predictions = cv.predict(x_val)
+    error = 1-np.mean(predictions == y_val)
+    with open('ex1.txt', 'a+') as f:
+        f.write(f'ex1a error: {str(error)}\n')
 
     # use cross val to find the optimal value of lambda
     pset51 = {
@@ -166,7 +166,7 @@ def ex1():
         ]
     }
 
-    parameters = {
+    ex1b_parameters = {
         'classifiers': [
             {
                 'type': 'linear_svm',
@@ -201,7 +201,7 @@ def ex1():
         ]
     }
 
-    cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=parameters,
+    cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex1b_parameters,
                          x_val=x_test, y_val=y_test, n_jobs=-1,
                          classification_method='all_pairs', task='ex1b',
                          log_path='.', logging_level='reduced').fit()
@@ -213,5 +213,59 @@ def ex1():
         f.write(f'cv: {str(error)}\n')
 
 
+def ex2():
+    x_train = np.load('./data/h6/train_features.npy')
+    y_train = np.load('./data/h6/train_labels.npy')
+    x_val   = np.load('./data/h6/val_features.npy')
+    y_val   = np.load('./data/h6/val_labels.npy')
+    x_test  = np.load('./data/h6/test_features.npy')
+
+    # select a small subset of classes for proof of concept
+    test_classes = [0, 1, 2]
+    idx = np.isin(y_train, test_classes)
+
+    x_train = x_train[idx, :]
+    y_train = y_train[idx]
+
+    idx   = np.isin(y_val, test_classes)
+    x_val = x_val[idx, :]
+    y_val = y_val[idx]
+
+    ex2a_parameters = {
+        'classifiers': [
+            {
+                'type': 'linear_svm',
+                'parameters': {
+                    'loss': ['smoothed_hinge'],
+                    'h': [0.5],
+                    'algo': ['fgrad'],
+                    'alpha': [0.5],
+                    'bt_max_iter': [50],
+                    'eps': [.001],
+                    'eta': [1.],
+                    'lambda': [1.],
+                    'max_iter': [2],
+                    't_eta': [0.8]
+                }
+            }
+        ]
+    }
+
+    task = 'ex2a'
+    cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex2a_parameters,
+                         x_val=x_val, y_val=y_val, n_jobs=3,
+                         classification_method='all_pairs', task=task,
+                         log_path='.', logging_level='reduced').fit()
+
+    cv.output_predictions(x_test)
+
+    predictions = cv.predict(x_val)
+    error = np.mean(predictions == y_val)
+
+    with open('ex2.txt', 'a+') as f:
+        f.write(f'{task}: {str(error)}\n')
+
+
 if __name__ == '__main__':
-    ex1()
+    #ex1()
+    ex2()
