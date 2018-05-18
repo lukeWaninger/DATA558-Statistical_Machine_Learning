@@ -239,9 +239,46 @@ def ex2_data(classes=None):
 
 def ex2a_ap():
     from sklearn.svm import LinearSVC
+    from scipy.stats import mode
 
-    x_train, y_train, x_val, y_val, x_test = ex2_data([2, 3])
+    x_train, y_train, x_val, y_val, x_test = ex2_data()
 
+    # generate pairs
+    labels = np.unique(y_train)
+    pairs = []
+    for i in range(len(labels)):
+        for j in range(i+1, len(labels)):
+            pairs.append((labels[i], labels[j]))
+
+    # fit and predict for each pair
+    predictions = []
+    for pair in pairs:
+        cv = LinearSVC()
+        idx = np.isin(y_train, pair)
+
+        cv = cv.fit(x_train[idx, :], y_train[idx])
+        predictions.append(cv.predict(x_val))
+
+    # take the modes
+    predictions = np.array(predictions).T
+    predictions = [mode(pi).mode[0] for pi in predictions]
+    error = 1-np.mean(predictions == y_val)
+
+    with open('ex2a.txt', 'a+') as f:
+        f.write(f'all pairs: {str(error)}\n')
+
+
+def ex2a_ovr():
+    from sklearn.svm import LinearSVC
+
+    x_train, y_train, x_val, y_val, x_test = ex2_data()
+    cv = LinearSVC()
+    cv = cv.fit(x_train, y_train)
+    predictions = cv.predict(x_val)
+
+    error = 1-np.mean(predictions == y_val)
+    with open('ex2a.txt', 'a+') as f:
+        f.write(f'ovr: {str(error)}\n')
 
 # --------------------------------------------------
 # exercise 2b. all pairs, 4 fold cross val
@@ -323,5 +360,7 @@ def ex2b_ovr():
 
 if __name__ == '__main__':
     #ex1()
-    ex2b_ap()
+    #ex2a_ap()
+    ex2a_ovr()
+    #ex2b_ap()
     #ex2b_ovr()
