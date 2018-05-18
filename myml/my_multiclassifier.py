@@ -310,7 +310,8 @@ class MultiClassifier(object):
         path = f'{self.__log_path}/{self.task}.csv'
 
         # continue until no child processes are running
-        running = len(self.cvs)
+        k = len(np.unique(self.__y))
+        running = k*(k-1)/2
         while True:
             message = log_queue.get()
 
@@ -329,7 +330,7 @@ class MultiClassifier(object):
                 break
 
         time_delta = time.time()-start
-        print('training completed in %s\n' % time_delta)
+        print(f'training completed in {round(time_delta, 2)} seconds.\n')
         conn.send(True)
 
     def __train_one(self, cv, conn, queue):
@@ -347,14 +348,13 @@ class MultiClassifier(object):
         """
         start = time.time()
 
-        print("starting %s on pid %s" % (cv.task, os.getpid()))
+        print(f'starting {cv.task} on pid {os.getpid()}')
+
         cv.set_log_queue(self.__log_queue)
         cv = cv.fit()
 
-        print('%s finished %s in %s seconds' %
-              (os.getpid(), cv.task, time.time() - start))
+        print(f'{os.getpid()} finished {cv.task} in {round(time.time() - start, 2)} seconds')
 
         self.__log_queue.put('END_FLAG')
-
         conn.send(True)
         queue.put(cv.dict)
