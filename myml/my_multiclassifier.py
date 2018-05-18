@@ -204,8 +204,19 @@ class MultiClassifier(object):
 
         # set class labels and parse indices
         if neg == 'rest':
+            # subsample
+            neg_idx = np.where(y != int(pos))[0]
             pos_idx = np.where(y == int(pos))[0]
+
+            sub_idx = np.random.choice(neg_idx, int(len(neg_idx)*.5))
+            sub_idx = np.concatenate((sub_idx, pos_idx))
+
+            x = x[sub_idx, :]
+            y = y[sub_idx]
+
             y = y**0*-1
+
+            pos_idx = np.where(y == int(pos))[0]
             y[pos_idx] = 1
 
             if len(x_v) > 0 and len(y_v) > 0:

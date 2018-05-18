@@ -139,7 +139,7 @@ class MyClassifier(ABC):
                 metrics.append(s.val_metrics.dict[metric])
 
         # if the best params haven't been trained, train
-        if not pretrained:
+        if not pretrained and len(self.__cv_splits) > 1:
             idx = func(metrics)
 
             # create a new split with parameters from the best

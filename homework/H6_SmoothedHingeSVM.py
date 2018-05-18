@@ -332,7 +332,7 @@ def ex2b_ovr():
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': [2048., 4096., 8192., 16384.],
+                    'lambda': [16384.],
                     'max_iter': [100],
                     't_eta': [0.8],
                 }
@@ -342,8 +342,8 @@ def ex2b_ovr():
 
     task = 'ex2b_ovr'
     cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex2b_ovr_params,
-                         x_val=x_val, y_val=y_val, n_jobs=3,
-                         classification_method='all_pairs', task=task,
+                         x_val=x_val, y_val=y_val, n_jobs=1,
+                         classification_method='ovr', task=task,
                          log_path='.', logging_level='none').fit()
     cv.output_predictions(x_test)
 
@@ -352,10 +352,13 @@ def ex2b_ovr():
     with open('ex2.txt', 'a+') as f:
         f.write(f'{task}: {str(error)}\n')
 
+#
+# if __name__ == '__main__':
+#     ex1()
+#     ex2a_ap()
+#     ex2a_ovr()
+#     ex2b_ap()
 
-if __name__ == '__main__':
-    #ex1()
-    ex2a_ap()
-    ex2a_ovr()
-    #ex2b_ap()
-    #ex2b_ovr()
+import os
+os.chdir(os.getcwd() + '/homework')
+ex2b_ovr()
