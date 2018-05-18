@@ -213,27 +213,42 @@ def ex1():
         f.write(f'cv: {str(error)}\n')
 
 
-def ex2b_ap():
+def ex2_data(classes=None):
     x_train = np.load('./data/h6/train_features.npy')
     y_train = np.load('./data/h6/train_labels.npy')
-    x_val   = np.load('./data/h6/val_features.npy')
-    y_val   = np.load('./data/h6/val_labels.npy')
-    x_test  = np.load('./data/h6/test_features.npy')
+    x_val = np.load('./data/h6/val_features.npy')
+    y_val = np.load('./data/h6/val_labels.npy')
+    x_test = np.load('./data/h6/test_features.npy')
 
-    # select a small subset of classes for proof of concept
-    # test_classes = [0, 1, 2]
-    # idx = np.isin(y_train, test_classes)
-    #
-    # x_train = x_train[idx, :]
-    # y_train = y_train[idx]
-    #
-    # idx   = np.isin(y_val, test_classes)
-    # x_val = x_val[idx, :]
-    # y_val = y_val[idx]
+    if classes is not None:
+        idx = np.isin(y_train, classes)
+        x_train = x_train[idx, :]
+        y_train = y_train[idx]
 
-    # --------------------------------------------------
-    # exercise 2b. all pairs, 4 fold cross val
-    # --------------------------------------------------
+        idx = np.isin(y_val, classes)
+        x_val = x_val[idx, :]
+        y_val = y_val[idx]
+
+    scalar = StandardScaler().fit(x_train)
+    x_train = scalar.transform(x_train)
+    x_test = scalar.transform(x_test)
+    x_val = scalar.transform(x_val)
+
+    return x_train, y_train, x_val, y_val, x_test
+
+
+def ex2a_ap():
+    from sklearn.svm import LinearSVC
+
+    x_train, y_train, x_val, y_val, x_test = ex2_data([2, 3])
+
+
+# --------------------------------------------------
+# exercise 2b. all pairs, 4 fold cross val
+# --------------------------------------------------
+def ex2b_ap():
+    x_train, y_train, x_val, y_val, x_test = ex2_data([2, 3])
+
     ex2b_ap_params = {
         'classifiers': [
             {
@@ -271,11 +286,7 @@ def ex2b_ovr():
     # --------------------------------------------------
     # exercise 2b. one vs. rest, 4 fold cross val
     # --------------------------------------------------
-    x_train = np.load('./data/h6/train_features.npy')
-    y_train = np.load('./data/h6/train_labels.npy')
-    x_val = np.load('./data/h6/val_features.npy')
-    y_val = np.load('./data/h6/val_labels.npy')
-    x_test = np.load('./data/h6/test_features.npy')
+    x_train, y_train, x_val, y_val, x_test = ex2_data()
 
     ex2b_ovr_params = {
         'classifiers': [
