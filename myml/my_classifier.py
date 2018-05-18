@@ -119,15 +119,12 @@ class MyClassifier(ABC):
         Raises
             ValueError: if provided metric is not defined
         """
-        splits = self.__cv_splits
-        pretrained = False
-        func = np.argmin
-        metrics = []
+        splits, pretrained, metrics = self.__cv_splits, False, []
 
         # determine the best metric to use
         if metric in ['fpr', 'error']:
             func = np.argmin
-        elif metric in ['accuracy', 'precision', 'recall', 'specificity', 'f1_measure', 'tpr']
+        elif metric in ['accuracy', 'precision', 'recall', 'specificity', 'f1_measure', 'tpr']:
             func = np.argmax
         else:
             raise ValueError('provided metric is not defined')

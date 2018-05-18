@@ -254,7 +254,7 @@ def ex2():
     task = 'ex2a'
     cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex2a_parameters,
                          x_val=x_val, y_val=y_val, n_jobs=3,
-                         classification_method='all_pairs', task=task,
+                         classification_method='ovr', task=task,
                          log_path='.', logging_level='reduced').fit()
 
     cv.output_predictions(x_test)
