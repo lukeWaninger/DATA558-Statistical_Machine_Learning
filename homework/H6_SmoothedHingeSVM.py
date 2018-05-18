@@ -280,11 +280,9 @@ def ex2a_ovr():
     with open('ex2a.txt', 'a+') as f:
         f.write(f'ovr: {str(error)}\n')
 
-# --------------------------------------------------
-# exercise 2b. all pairs, 4 fold cross val
-# --------------------------------------------------
+
 def ex2b_ap():
-    x_train, y_train, x_val, y_val, x_test = ex2_data([2, 3])
+    x_train, y_train, x_val, y_val, x_test = ex2_data([13, 98, 32, 44, 77])
 
     ex2b_ap_params = {
         'classifiers': [
@@ -298,8 +296,8 @@ def ex2b_ap():
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': [.25, .5, 1., 2.],
-                    'max_iter': [100],
+                    'lambda': [.5, 1., 2., 4.],
+                    'max_iter': [2],
                     't_eta': [0.8],
                 }
             }
@@ -308,7 +306,7 @@ def ex2b_ap():
 
     task = 'ex2b_ap'
     cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex2b_ap_params,
-                         x_val=x_val, y_val=y_val, n_jobs=-1,
+                         x_val=x_val, y_val=y_val, n_jobs=3,
                          classification_method='all_pairs', task=task,
                          log_path='.', logging_level='reduced').fit()
     cv.output_predictions(x_test)
@@ -361,6 +359,6 @@ def ex2b_ovr():
 if __name__ == '__main__':
     #ex1()
     #ex2a_ap()
-    ex2a_ovr()
-    #ex2b_ap()
+    #ex2a_ovr()
+    ex2b_ap()
     #ex2b_ovr()

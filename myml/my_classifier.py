@@ -149,7 +149,10 @@ class MyClassifier(ABC):
                 train_idx=np.arange(self.__x.shape[0]),
                 parameters=splits[idx].parameters
             )
-            self.__cv_splits.append(new_split)
+
+            # remove the old splits to free some memory
+            del self.__cv_splits
+            self.__cv_splits = [new_split]
 
             # train with the identified parameter set
             print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
@@ -157,14 +160,20 @@ class MyClassifier(ABC):
             thread_name = threading.current_thread().getName()
             self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
 
+            # reset learning rate and fit
             self._set_param('eta', 1.)
             self.fit_one()
+
+            # free more memory
+            del self.__x, self.__y
+            self.__cv_splits[0].train_idx = []
+            self.__cv_splits[0].val_idx   = []
         else:
             pass
 
         # set the correct thread for prediction
         thread_name = threading.current_thread().getName()
-        self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
+        self.__thread_split_map[thread_name] = 0
 
         # return labels or probabilities
         return self.predict(x) if not proba else self.predict_proba(x)
