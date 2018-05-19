@@ -2,6 +2,7 @@ from myml.my_multiclassifier import MultiClassifier
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
+import sys
 
 
 def ex1():
@@ -50,15 +51,15 @@ def ex1():
         ]
     }
 
-    cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex1_parameters,
-                         x_val=x_test, y_val=y_test, n_jobs=-1,
-                         classification_method='all_pairs', task='ex1a',
-                         log_path='.', logging_level='reduced').fit()
-
-    predictions = cv.predict(x_val)
-    error = 1-np.mean(predictions == y_val)
-    with open('ex1.txt', 'a+') as f:
-        f.write(f'ex1a error: {str(error)}\n')
+    # cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex1_parameters,
+    #                      x_val=x_test, y_val=y_test, n_jobs=-1,
+    #                      classification_method='all_pairs', task='ex1a',
+    #                      log_path='.', logging_level='reduced').fit()
+    #
+    # predictions = cv.predict(x_val)
+    # error = 1-np.mean(predictions == y_val)
+    # with open('ex1.txt', 'a+') as f:
+    #     f.write(f'ex1a error: {str(error)}\n')
 
     # use cross val to find the optimal value of lambda
     pset51 = {
@@ -178,26 +179,26 @@ def ex1():
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': list(np.linspace(0.001, .1, 25)),
+                    'lambda': list(np.linspace(0.001, .1, 3)),
                     'max_iter': [100],
                     't_eta': [0.8]
                 }
             },
-            {
-                'type': 'linear_svm',
-                'parameters': {
-                    'loss': ['smoothed_hinge'],
-                    'h': [0.5],
-                    'algo': ['fgrad'],
-                    'alpha': [0.5],
-                    'bt_max_iter': [50],
-                    'eps': [.001],
-                    'eta': [1.],
-                    'lambda': list(np.linspace(0.1, 1., 25)),
-                    'max_iter': [100],
-                    't_eta': [0.8]
-                }
-            }
+            # {
+            #     'type': 'linear_svm',
+            #     'parameters': {
+            #         'loss': ['smoothed_hinge'],
+            #         'h': [0.5],
+            #         'algo': ['fgrad'],
+            #         'alpha': [0.5],
+            #         'bt_max_iter': [50],
+            #         'eps': [.001],
+            #         'eta': [1.],
+            #         'lambda': list(np.linspace(0.1, 1., 25)),
+            #         'max_iter': [100],
+            #         't_eta': [0.8]
+            #     }
+            # }
         ]
     }
 
@@ -241,7 +242,7 @@ def ex2a_ap():
     from sklearn.svm import LinearSVC
     from scipy.stats import mode
 
-    x_train, y_train, x_val, y_val, x_test = ex2_data()
+    x_train, y_train, x_val, y_val, x_test = ex2_data([2, 3, 4])
 
     # generate pairs
     labels = np.unique(y_train)
@@ -282,7 +283,7 @@ def ex2a_ovr():
 
 
 def ex2b_ap():
-    x_train, y_train, x_val, y_val, x_test = ex2_data([28, 56])
+    x_train, y_train, x_val, y_val, x_test = ex2_data()
 
     ex2b_ap_params = {
         'classifiers': [
@@ -296,8 +297,8 @@ def ex2b_ap():
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': [2048., 4096., 8192., 16384.],
-                    'max_iter': [100],
+                    'lambda': 16348, #[2048., 4096., 8192., 16384.],
+                    'max_iter': [0],
                     't_eta': [0.8],
                 }
             }
@@ -306,7 +307,7 @@ def ex2b_ap():
 
     task = 'ex2b_ap'
     cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex2b_ap_params,
-                         x_val=x_val, y_val=y_val, n_jobs=5,
+                         x_val=x_val, y_val=y_val, n_jobs=-1,
                          classification_method='all_pairs', task=task,
                          log_path='.', logging_level='none').fit()
     cv.output_predictions(x_test)
@@ -318,7 +319,7 @@ def ex2b_ap():
 
 
 def ex2b_ovr():
-    x_train, y_train, x_val, y_val, x_test = ex2_data()
+    x_train, y_train, x_val, y_val, x_test = ex2_data([1, 2, 3])
 
     ex2b_ovr_params = {
         'classifiers': [
@@ -333,7 +334,7 @@ def ex2b_ovr():
                     'eps': [.001],
                     'eta': [1.],
                     'lambda': [16384.],
-                    'max_iter': [100],
+                    'max_iter': [2],
                     't_eta': [0.8],
                 }
             }
@@ -342,7 +343,7 @@ def ex2b_ovr():
 
     task = 'ex2b_ovr'
     cv = MultiClassifier(x_train=x_train, y_train=y_train, parameters=ex2b_ovr_params,
-                         x_val=x_val, y_val=y_val, n_jobs=1,
+                         x_val=x_val, y_val=y_val, n_jobs=2,
                          classification_method='ovr', task=task,
                          log_path='.', logging_level='none').fit()
     cv.output_predictions(x_test)
@@ -352,13 +353,12 @@ def ex2b_ovr():
     with open('ex2.txt', 'a+') as f:
         f.write(f'{task}: {str(error)}\n')
 
-#
-# if __name__ == '__main__':
-#     ex1()
-#     ex2a_ap()
-#     ex2a_ovr()
-#     ex2b_ap()
 
-import os
-os.chdir(os.getcwd() + '/homework')
-ex2b_ovr()
+if __name__ == '__main__':
+    ex1()
+
+    ex2b_ap()
+
+    # ex2a_ovr()
+
+    # ex2b_ap()

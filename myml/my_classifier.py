@@ -77,8 +77,44 @@ class MyClassifier(ABC):
             self.__thread_split_map[thread_name] = i
             thread.start()
 
+        # wait for threads to finish
         while len(self.__thread_split_map.keys()) != 0:
             time.sleep(1)
+
+        # find best params and refit
+        if len(self.__cv_splits) > 1:
+            splits, metrics = self.__cv_splits, []
+            val_errors = [s.val_metrics.dict['error'] for s in splits if s.val_metrics is not None]
+            idx = np.argmin(val_errors) if len(val_errors) > 0 else 0
+
+            # create a new split with parameters from the best
+            new_split = TrainingSplit(
+                n=self.__x.shape[0],
+                d=self.__x.shape[1],
+                train_idx=np.arange(self.__x.shape[0]),
+                parameters=splits[idx].parameters
+            )
+            new_split.parameters['eta'] = 1.
+
+            # remove the old splits to free some memory
+            del self.__cv_splits
+            self.__cv_splits = [new_split]
+
+            # train with the identified parameter set
+            print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
+            thread = threading.Thread(target=self.fit_one)
+            name = thread.getName()
+            self.__thread_split_map[name] = len(self.__cv_splits) - 1
+            thread.start()
+
+            while thread.isAlive():
+                time.sleep(1)
+
+        # free more memory
+        self.__x = []
+        self.__y = []
+        self.__cv_splits[0].train_idx = []
+        self.__cv_splits[0].val_idx = []
 
         # write self to disk
         if self.__log_path is not None and self.__write_to_disk:
@@ -102,81 +138,6 @@ class MyClassifier(ABC):
 
         thread_name = threading.currentThread().getName()
         del self.__thread_split_map[thread_name]
-
-    def predict_with_best_fold(self, x, metric='error', proba=False):
-        """predict the given labels
-
-        uses the provided metric to determine which fold to extract parameters.
-        once identified, a new fold is generated and trained using those parameters.
-
-        Args
-            x (ndarray): nXd array of samples to predict
-            metric (str) - optional: metric to use for finding the optimal
-
-        Returns
-            [({-1, 1})]: list of predictions
-
-        Raises
-            ValueError: if provided metric is not defined
-        """
-        splits, pretrained, metrics = self.__cv_splits, False, []
-
-        # determine the best metric to use
-        if metric in ['fpr', 'error']:
-            func = np.argmin
-        elif metric in ['accuracy', 'precision', 'recall', 'specificity', 'f1_measure', 'tpr']:
-            func = np.argmax
-        else:
-            raise ValueError('provided metric is not defined')
-
-        # get all those metrics, unless one without validation metrics
-        # is found. In that case, the best params have already been trained
-        for s in splits:
-            if s.val_metrics is None:
-                pretrained = True
-                break
-            else:
-                metrics.append(s.val_metrics.dict[metric])
-
-        # if the best params haven't been trained, train
-        if not pretrained and len(self.__cv_splits) > 1:
-            idx = func(metrics)
-
-            # create a new split with parameters from the best
-            new_split = TrainingSplit(
-                n=self.__x.shape[0],
-                d=self.__x.shape[1],
-                train_idx=np.arange(self.__x.shape[0]),
-                parameters=splits[idx].parameters
-            )
-
-            # remove the old splits to free some memory
-            del self.__cv_splits
-            self.__cv_splits = [new_split]
-
-            # train with the identified parameter set
-            print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
-
-            thread_name = threading.current_thread().getName()
-            self.__thread_split_map[thread_name] = len(self.__cv_splits) - 1
-
-            # reset learning rate and fit
-            self._set_param('eta', 1.)
-            self.fit_one()
-
-            # free more memory
-            del self.__x, self.__y
-            self.__cv_splits[0].train_idx = []
-            self.__cv_splits[0].val_idx   = []
-        else:
-            pass
-
-        # set the correct thread for prediction
-        thread_name = threading.current_thread().getName()
-        self.__thread_split_map[thread_name] = 0
-
-        # return labels or probabilities
-        return self.predict(x) if not proba else self.predict_proba(x)
 
     def __compute_metrics(self, x, y, prediction_func=None):
         """compute metrics at the current classifier state
@@ -337,6 +298,9 @@ class MyClassifier(ABC):
         Returns
             None
         """
+        if self.__logging_level == 'none':
+            return
+
         split = self.__current_split
 
         train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
@@ -345,9 +309,8 @@ class MyClassifier(ABC):
         if self.__cv_splits[split].val_idx is not None:
             val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
             self.__cv_splits[split].val_metrics = val_metrics
-
-        if self.__logging_level == 'none':
-            return
+        else:
+            val_metrics = None
 
         # write basic classifier state
         pstr = ', '.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
@@ -355,8 +318,8 @@ class MyClassifier(ABC):
 
         # write row by current logging level
         no_val_set = 'no_val_set'
-        if self.__logging_level == 'minimal':
-            row = arg_str
+        if self.__logging_level == 'minimal' or train_metrics is None or val_metrics is None:
+            row = f'{self.task}, {arg_str}'
 
         elif self.__logging_level == 'reduced':
             row = f'{self.task}, ' \
@@ -471,6 +434,9 @@ class MyClassifier(ABC):
 
         # calculate how many splits we need to create
         for key, value in self.__parameters.items():
+            if not isinstance(value, list):
+                value = [value]
+
             cv_splits *= len(value)
             idx_set[key] = 0
 
@@ -510,6 +476,9 @@ class MyClassifier(ABC):
         else:
             parameters = {}
             for key, value in self.__parameters.items():
+                if not isinstance(value, list):
+                    value = [value]
+
                 parameters[key] = value[0]
 
             splits.append(
@@ -540,7 +509,10 @@ class MyClassifier(ABC):
 
     @property
     def coef_(self):
-        return self.__cv_splits[self.__current_split].betas
+        if len(self.__cv_splits) == 1:
+            return self.__cv_splits[0].betas
+        else:
+            return self.__cv_splits[self.__current_split].betas
 
     @property
     def dict(self):
@@ -596,7 +568,7 @@ class MyClassifier(ABC):
             split = self.__thread_split_map.get(tid.getName(), -1)
 
             if split == -1:
-                raise Exception('split not found')
+                raise SplitNotFoundException('split not found')
 
             return split
         except threading.ThreadError as e:
@@ -636,6 +608,9 @@ class MetricSet:
         }
 
     def from_dict(self, data):
+        if data == 'none':
+            return self
+
         self.accuracy = data['accuracy']
         self.error = data['error']
         self.precision = data['precision']
@@ -673,6 +648,9 @@ class TrainingSplit:
         }
 
     def from_dict(self, data):
+        if data == 'none':
+            return None
+
         self.betas = data['betas']
         self.d = data['d']
         self.train_metrics = MetricSet().from_dict(data['train_metrics'])

@@ -37,8 +37,6 @@ class MultiClassifier(object):
             self.__available_procs = n_jobs
 
         self.__classification_method = classification_method
-        self.__log_path = log_path
-        self.__logging_level = logging_level
         self.__parameters = parameters
         self.__x = x_train
         self.__x_val = x_val
@@ -48,6 +46,8 @@ class MultiClassifier(object):
 
         self.__manager = multiprocessing.Manager()
         self.__log_queue = self.__manager.Queue()
+        self.__log_path = log_path
+        self.__logging_level = logging_level
         self.__completion_queue = self.__manager.Queue()
         self.__snd, self.__rcv = multiprocessing.Pipe()
 
@@ -71,11 +71,20 @@ class MultiClassifier(object):
         while len(self.__to_train) > 0:
             cvs = self.__build_classifiers(self.__to_train.pop())
 
+            # create a catch queue for the workers to be terminated
             for cv in cvs:
                 # ensure the classifier only uses designated number of processes, wait
                 # for child classifiers to finish training if none are available
                 if self.__available_procs == 0:
                     self.__rcv.recv()
+
+                    # find and terminate the process that just ended
+                    for worker in workers:
+                        if not worker.is_alive():
+                            worker.terminate()
+                            workers.remove(worker)
+
+                    self.__empty_completion_queue()
                     self.__available_procs += 1
 
                 worker = multiprocessing.Process(target=self.__train_one,
@@ -87,38 +96,15 @@ class MultiClassifier(object):
                 self.__available_procs -= 1
 
         print('all classifiers queued for processing..\n')
+        del self.__to_train
 
         # wait for each process to finish training
-        for worker in workers:
-            worker.join()
+        while len(workers) > 0:
+            workers[0].join()
+            workers[0].terminate()
+            workers.remove(workers[0])
 
-        # append the trained vcs
-        while not self.__completion_queue.empty():
-            cv_d = self.__completion_queue.get()
-
-            if 'linear_svm' in cv_d['task']:
-                cv_d = MyLinearSVM(x_train=None, y_train=None, parameters=None,
-                                   dict_rep=cv_d)
-
-            elif 'lasso' in cv_d['task']:
-                cv_d = MyLASSORegression(x_train=None, y_train=None, parameters=None,
-                                         dict_rep=cv_d)
-
-            elif 'logistic' in cv_d['task']:
-                cv_d = MyLogisticRegression(x_train=None, y_train=None, parameters=None,
-                                            dict_rep=cv_d)
-
-            elif 'ridge' in cv_d['task']:
-                cv_d = MyRidgeRegression(x_train=None, y_train=None, parameters=None,
-                                         dict_rep=cv_d)
-
-            else:
-                cv_d = None
-
-            if cv_d is not None:
-
-                self.cvs.append(cv_d)
-
+        self.__empty_completion_queue()
         log_manager.terminate()
         return self
 
@@ -153,7 +139,7 @@ class MultiClassifier(object):
         if self.__classification_method == 'ovr':
             predictions = []
             for cv in self.cvs:
-                predictions.append(cv.predict_with_best_fold(x, proba=True))
+                predictions.append(cv.predict_proba(x))
 
             predictions = np.array(predictions).T
             predictions = [np.argmax(p) for p in predictions]
@@ -166,7 +152,7 @@ class MultiClassifier(object):
                 if 'rest' in cv.task:
                     continue
 
-                pre = cv.predict_with_best_fold(x)
+                pre = cv.predict(x)
                 e = cv.task.split(' ')
                 pos, neg = e[0], e[2]
                 predictions.append([int(pos) if pi == 1 else int(neg) for pi in pre])
@@ -283,6 +269,33 @@ class MultiClassifier(object):
             cvs.append(classifier)
         return cvs
 
+    def __empty_completion_queue(self):
+        while not self.__completion_queue.empty():
+            cv_d = self.__completion_queue.get()
+
+            tasks = cv_d['task']
+            if 'linear_svm' in tasks:
+                cv_d = MyLinearSVM(x_train=None, y_train=None, parameters=None,
+                                   dict_rep=cv_d)
+
+            elif 'lasso' in tasks:
+                cv_d = MyLASSORegression(x_train=None, y_train=None, parameters=None,
+                                         dict_rep=cv_d)
+
+            elif 'logistic' in tasks:
+                cv_d = MyLogisticRegression(x_train=None, y_train=None, parameters=None,
+                                            dict_rep=cv_d)
+
+            elif 'ridge' in tasks:
+                cv_d = MyRidgeRegression(x_train=None, y_train=None, parameters=None,
+                                         dict_rep=cv_d)
+
+            else:
+                cv_d = None
+
+            if cv_d is not None:
+                self.cvs.append(cv_d)
+
     def __get_training_sets(self):
         """generate training sets
 
@@ -330,7 +343,7 @@ class MultiClassifier(object):
                 running -= 1
 
             else:
-                print(message)
+                #print(message)
                 try:
                     with open(path, 'a+') as f:
                         f.writelines(message + "\n")
