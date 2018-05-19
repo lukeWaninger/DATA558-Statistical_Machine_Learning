@@ -355,10 +355,7 @@ def ex2b_ovr():
 
 
 if __name__ == '__main__':
-    ex1()
-
     ex2b_ap()
-
-    # ex2a_ovr()
-
-    # ex2b_ap()
+    ex2b_ovr()
+    ex2a_ap()
+    ex2a_ovr()
