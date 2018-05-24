@@ -101,7 +101,6 @@ class MyClassifier(ABC):
             self.__cv_splits = [new_split]
 
             # train with the identified parameter set
-            print('training with all features %s: %s' % (self.task, str(splits[-1].parameters)))
             thread = threading.Thread(target=self.fit_one)
             name = thread.getName()
             self.__thread_split_map[name] = len(self.__cv_splits) - 1

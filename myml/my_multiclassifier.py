@@ -66,45 +66,38 @@ class MultiClassifier(object):
                                                     self.__snd))
         log_manager.start()
 
-        # create and start child classifiers
-        workers = []
+        # start consumers
+        consumers = []
+        consumption_queue = multiprocessing.Queue()
+
+        for i in range(self.__available_procs):
+            p = multiprocessing.Process(target=self.__consumer,
+                                        args=(consumption_queue, self.__log_queue, self.__completion_queue))
+            consumers.append(p)
+            p.start()
+
+        # act as producer and dish out classifiers
         while len(self.__to_train) > 0:
-            cvs = self.__build_classifiers(self.__to_train.pop())
+            consumption_queue.put(self.__to_train.pop())
+            self.__empty_completion_queue()
 
-            # create a catch queue for the workers to be terminated
-            for cv in cvs:
-                # ensure the classifier only uses designated number of processes, wait
-                # for child classifiers to finish training if none are available
-                if self.__available_procs == 0:
-                    self.__rcv.recv()
+        [consumption_queue.put('END_FLAG') for c in consumers]
 
-                    # find and terminate the process that just ended
-                    for worker in workers:
-                        if not worker.is_alive():
-                            worker.terminate()
-                            workers.remove(worker)
+        def is_running():
+            for c in consumers:
+                if c.is_alive():
+                    return True
+            return False
 
-                    self.__empty_completion_queue()
-                    self.__available_procs += 1
-
-                worker = multiprocessing.Process(target=self.__train_one,
-                                                 args=(cv, self.__snd, self.__completion_queue))
-                workers.append(worker)
-                worker.start()
-                time.sleep(np.random.uniform(0, .02))
-
-                self.__available_procs -= 1
-
-        print('all classifiers queued for processing..\n')
-        del self.__to_train
+        while is_running():
+            self.__empty_completion_queue()
 
         # wait for each process to finish training
-        while len(workers) > 0:
-            workers[0].join()
-            workers[0].terminate()
-            workers.remove(workers[0])
+        while len(consumers) > 0:
+            consumers[0].join()
+            consumers[0].terminate()
+            consumers.remove(consumers[0])
 
-        self.__empty_completion_queue()
         log_manager.terminate()
         return self
 
@@ -180,21 +173,17 @@ class MultiClassifier(object):
             ValueError: if designated classifier model is not found
         """
         cvs, x_idx, x_idx_v, y_v, x_v = [], [], [], [], []
-
         pos, neg = class_set
 
-        y = np.copy(self.__y)
-        x = np.copy(self.__x)
-        y_v = np.copy(self.__y_val)
-        x_v = np.copy(self.__x_val)
+        x, x_v = self.__x, self.__x_val
+        y, y_v = self.__y, self.__y_val
 
         # set class labels and parse indices
         if neg == 'rest':
-            # subsample
             neg_idx = np.where(y != int(pos))[0]
             pos_idx = np.where(y == int(pos))[0]
 
-            sub_idx = np.random.choice(neg_idx, int(len(neg_idx)*.5))
+            sub_idx = np.random.choice(neg_idx, int(len(neg_idx)))
             sub_idx = np.concatenate((sub_idx, pos_idx))
 
             x = x[sub_idx, :]
@@ -235,28 +224,7 @@ class MultiClassifier(object):
         for cv in self.__parameters['classifiers']:
             cv_type = cv['type']
 
-            if cv_type == 'logistic':
-                classifier = MyLogisticRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                                  parameters=cv['parameters'],
-                                                  task=task + " [logistic_regression]",
-                                                  logging_level=self.__logging_level,
-                                                  log_queue=self.__log_queue)
-
-            elif cv_type == 'lasso':
-                classifier = MyLASSORegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                               parameters=cv['parameters'],
-                                               task=task + " [LASSO_regression]",
-                                               logging_level=self.__logging_level,
-                                               log_queue=self.__log_queue)
-
-            elif cv_type == 'ridge':
-                classifier = MyRidgeRegression(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                               parameters=cv['parameters'],
-                                               task=task + " [ridge_regression]",
-                                               logging_level=self.__logging_level,
-                                               log_queue=self.__log_queue)
-
-            elif cv_type == 'linear_svm':
+            if cv_type == 'linear_svm':
                 classifier = MyLinearSVM(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
                                          parameters=cv['parameters'],
                                          task=task + " [linear_svm]",
@@ -275,20 +243,7 @@ class MultiClassifier(object):
 
             tasks = cv_d['task']
             if 'linear_svm' in tasks:
-                cv_d = MyLinearSVM(x_train=None, y_train=None, parameters=None,
-                                   dict_rep=cv_d)
-
-            elif 'lasso' in tasks:
-                cv_d = MyLASSORegression(x_train=None, y_train=None, parameters=None,
-                                         dict_rep=cv_d)
-
-            elif 'logistic' in tasks:
-                cv_d = MyLogisticRegression(x_train=None, y_train=None, parameters=None,
-                                            dict_rep=cv_d)
-
-            elif 'ridge' in tasks:
-                cv_d = MyRidgeRegression(x_train=None, y_train=None, parameters=None,
-                                         dict_rep=cv_d)
+                cv_d = MyLinearSVM(x_train=None, y_train=None, parameters=None, dict_rep=cv_d)
 
             else:
                 cv_d = None
@@ -357,28 +312,22 @@ class MultiClassifier(object):
         print(f'training completed in {round(time_delta, 2)} seconds.\n')
         conn.send(True)
 
-    def __train_one(self, cv, conn, queue):
-        """train a single classifier
+    def __consumer(self, consumption_queue, log_queue, completion_queue):
+        while True:
+            to_train = consumption_queue.get()
 
-        child process to train a single child classifier
+            if to_train == 'END_FLAG':
+                log_queue.put('END_FLAG')
+                break
 
-        Args
-            cv (MyClassifier): classifier to fit
-            conn (multiprocessing.Pipe): pipe to send success message to parent process
-            queue (multiprocessing.Queue): pass completed classifers back to parent process
+            cvs = self.__build_classifiers(to_train)
 
-        Returns
-            None
-        """
-        start = time.time()
+            for cv in cvs:
+                start = time.time()
+                print(f'starting {cv.task} on pid {os.getpid()}')
 
-        print(f'starting {cv.task} on pid {os.getpid()}')
+                cv.set_log_queue(log_queue)
+                cv = cv.fit()
 
-        cv.set_log_queue(self.__log_queue)
-        cv = cv.fit()
-
-        print(f'{os.getpid()} finished {cv.task} in {round(time.time() - start, 2)} seconds')
-
-        self.__log_queue.put('END_FLAG')
-        conn.send(True)
-        queue.put(cv.dict)
+                print(f'{os.getpid()} finished {cv.task} in {round(time.time() - start, 2)} seconds')
+                completion_queue.put(cv.dict)

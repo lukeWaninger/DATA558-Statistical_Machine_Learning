@@ -106,25 +106,14 @@ class MyLinearSVM(MyClassifier):
         reg = l*np.linalg.norm(beta)**2
         h = self._param('h')
 
-        def piecewise(yx_i):
-            yt = yx_i@beta
+        loss = np.zeros(n)
+        yx = y * (x@beta)
+        mask = np.abs(1 - yx)
 
-            if yt > 1 + h:
-                return 0
+        loss[mask <= h] = ((1 + h - yx) ** 2 / (4 * h))[mask <= h]
+        loss[yx < 1 - h] = (1 - yx)[yx < 1 - h]
 
-            elif np.abs(1 - yt) <= h:
-                return (1 + h - yt)**2/(4*h)
-
-            elif yt < 1-h:
-                return 1 - yt
-
-            else:
-                raise Exception('cant find a piece')
-
-        yx = y[:, np.newaxis] * x
-        loss_chunks = np.apply_along_axis(piecewise, 1, yx)
-
-        return 1./n * np.sum(loss_chunks) + reg
+        return np.sum(loss) / n + reg
 
     def __smoothed_hinge_gradient(self, beta):
         """smoothed hinge gradient
@@ -135,28 +124,17 @@ class MyLinearSVM(MyClassifier):
        Returns
            ndarray: mX1 array of gradient values
        """
-        x, y, n, h = self._x, self._y, self._n, self._param('h')
+        x, y, n, d, h = self._x, self._y, self._n, self._d, self._param('h')
         reg = 2 * self._param('lambda') * beta
 
-        def piecewise(yx_i):
-            yt = yx_i@beta
+        lg = np.zeros([n, d])
+        yx = y * x.dot(beta)
+        mask = abs(1 - yx)
 
-            if yt > 1 + h:
-                return 0
+        lg[mask <= h] = ((2 / (4 * h)) * ((1 + h - yx)[:, np.newaxis]) * (-y[:, np.newaxis] * x))[mask <= h]
+        lg[yx < 1 - h] = (-y[:, np.newaxis] * x)[yx < 1 - h]
 
-            elif np.abs(1 - yt) <= h:
-                return -1.*(1+h-yt)/(2*h)
-
-            elif yt < 1 - h:
-                return -1.
-
-            else:
-                raise Exception('cant find a piece')
-
-        yx = y[:, np.newaxis] * x
-        partials = np.apply_along_axis(piecewise, 1, yx)
-
-        return partials@yx/n + reg
+        return np.array(np.sum(lg, axis=0)/n + reg)
 
     def __squared_hinge_gradient(self, beta):
         """compute gradient of squared hinge loss
