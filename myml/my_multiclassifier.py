@@ -1,7 +1,7 @@
 from myml.mlassoreg import MyLASSORegression
 from myml.mlogreg import MyLogisticRegression
 from myml.mridgereg import MyRidgeRegression
-from myml.mlinear_svm import MyLinearSVM
+from myml.msvm import MyLinearSVM
 import multiprocessing
 import numpy as np
 import os

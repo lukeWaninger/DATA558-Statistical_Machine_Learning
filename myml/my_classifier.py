@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 import datetime
+from myml.metrics import MetricSet
+from myml.cvsplit import TrainingSplit
 import numpy as np
 import pickle
 from sklearn.model_selection import KFold
@@ -9,7 +11,6 @@ import time
 
 class MyClassifier(ABC):
     """my classifier base class"""
-
     def __init__(self, x_train, y_train, parameters, *args, **kwargs):
         """
 
@@ -39,9 +40,9 @@ class MyClassifier(ABC):
         # setup cross-validation and logging features
         self.__thread_split_map = {}
         self.__logging_level = args[1]['logging_level'] if 'logging_level' in args[1].keys() else 'none'
-        self.__log_path = args[1]['log_path'] if 'log_path' in args[1].keys() else ''
+        self.__log_path      = args[1]['log_path']      if 'log_path'      in args[1].keys() else ''
+        self.__log_queue     = args[1]['loq_queue']     if 'loq_queue'     in args[1].keys() else None
         self.__write_to_disk = args[1]['write_to_disk'] if 'write_to_disk' in args[1].keys() else False
-        self.__log_queue = args[1]['loq_queue'] if 'loq_queue' in args[1].keys() else None
 
     @abstractmethod
     def _compute_grad(self, beta):
@@ -89,9 +90,9 @@ class MyClassifier(ABC):
 
             # create a new split with parameters from the best
             new_split = TrainingSplit(
-                n=self.__x.shape[0],
-                d=self.__x.shape[1],
-                train_idx=np.arange(self.__x.shape[0]),
+                n=self._n,
+                d=self._d,
+                train_idx=np.arange(self._n),
                 parameters=splits[idx].parameters
             )
             new_split.parameters['eta'] = 1.
@@ -107,7 +108,7 @@ class MyClassifier(ABC):
             thread.start()
 
             while thread.isAlive():
-                time.sleep(1)
+                time.sleep(.5)
 
         # free more memory
         self.__x = []
@@ -123,9 +124,15 @@ class MyClassifier(ABC):
 
     def fit_one(self):
         """fit a single training fold"""
-        self._set_betas(np.zeros(self._d))
+        split = self.__current_split
 
-        algo = self.__cv_splits[self.__current_split].parameters['algo']
+        # initialize optimization coefficients
+        if self.__current_split.has_kernel:
+            self._set_param('betas', np.zeros(self._n))
+        else:
+            self._set_param('betas', np.zeros(self._d))
+
+        algo = split.parameters['algo']
         if algo == 'grad':
             self.__grad_descent()
         elif algo == 'fgrad':
@@ -138,57 +145,9 @@ class MyClassifier(ABC):
         thread_name = threading.currentThread().getName()
         del self.__thread_split_map[thread_name]
 
-    def __compute_metrics(self, x, y, prediction_func=None):
-        """compute metrics at the current classifier state
-
-        Args
-            x (ndarray): nXd array of input samples
-            y (ndarray): nX1 of true labels
-            prediction_func (function) - optional: prediction function
-
-        Returns
-            MetricSet: containing classifier performance metrics
-        """
-        if x is None and y is None:
-            return MetricSet()
-
-        if prediction_func is None:
-            pre = self.predict(x)
-        else:
-            pre = prediction_func(x)
-
-        p = np.sum(y == 1)
-        n = np.sum(y == -1)
-        tp = np.sum([yh == 1 and yt == 1 for yh, yt in zip(pre, y)])
-        tn = np.sum([yh == -1 and yt == -1 for yh, yt in zip(pre, y)])
-        fp = np.sum([yh == 1 and yt == -1 for yh, yt in zip(pre, y)])
-
-        # accuracy, error, recall, tpr, fpr
-        if p == 0 or n == 0:
-            acc = rec = tpr = fpr = 0
-        else:
-            acc = (tp + tn) / (p + n)
-            rec = tp / p
-            tpr = rec
-            fpr = fp / n
-        err = 1 - acc
-        specificity = 1 - fpr
-
-        # precision
-        if tp == 0 or fp == 0:
-            prec = 0
-        else:
-            prec = tp / (tp + fp)
-
-        # f1 measure
-        if prec == 0 or rec == 0:
-            f1 = 0
-        else:
-            f1 = 2 / (prec ** -1 + rec ** -1)
-
-        return MetricSet(acc=acc, err=err, pre=prec, rec=rec,
-                         f1=f1, fpr=fpr, tpr=tpr, specificity=specificity)
-
+    # ---------------------------------------------------------------
+    # optimization methods
+    # ---------------------------------------------------------------
     def __backtracking(self, beta):
         """backtracking line search
 
@@ -239,7 +198,7 @@ class MyClassifier(ABC):
             grad_x = self._compute_grad(beta)
 
             i += 1
-            self._set_betas(beta)
+            self._set_param('betas', beta)
             self.log_metrics([i, self._objective(beta)])
 
     def __fast_grad_descent(self):
@@ -263,7 +222,7 @@ class MyClassifier(ABC):
             b0 = b1
 
             i += 1
-            self._set_betas(b0)
+            self._set_param('betas', b0)
             self.log_metrics([self._param('lambda'), i, t, self._objective(b0)])
 
             if np.isclose(0, t):
@@ -287,7 +246,7 @@ class MyClassifier(ABC):
         except Exception as e:
             print('could not load model from disk: %s' % ', '.join([str(a) for a in e.args]))
 
-    def log_metrics(self, args=None, prediction_func=None):
+    def log_metrics(self, args=None):
         """metrics logging
 
         Args
@@ -301,18 +260,23 @@ class MyClassifier(ABC):
             return
 
         split = self.__current_split
+        y_hat = self.predict(self.__x[split.train_idx])
+        y_true = self._y[split.train_idx]
 
-        train_metrics = self.__compute_metrics(self._x, self._y, prediction_func)
+        train_metrics = MetricSet(y_hat=y_hat, y_true=y_true)
         self.__cv_splits[split].train_metrics = train_metrics
 
         if self.__cv_splits[split].val_idx is not None:
-            val_metrics = self.__compute_metrics(self._x_val, self._y_val, prediction_func)
+            y_hat = self.predict(self.__x[split.val_idx])
+            y_true = self._y[split.val_idx]
+
+            val_metrics = MetricSet(y_hat=y_hat, y_true=y_true)
             self.__cv_splits[split].val_metrics = val_metrics
         else:
             val_metrics = None
 
         # write basic classifier state
-        pstr = ', '.join([str(v) for k, v in self.__cv_splits[self.__current_split].parameters.items()])
+        pstr = ', '.join([str(v) for k, v in split.parameters.items()])
         arg_str = ', '.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
 
         # write row by current logging level
@@ -382,31 +346,16 @@ class MyClassifier(ABC):
         Returns
             object: parameter
         """
-        try:
-            return self.__cv_splits[self.__current_split].parameters[parameter]
-        except KeyError as e:
-            print([str(a) for a in e.args])
-            return None
-
-    def _set_betas(self, betas):
-        """set beta values for current training split
-
-        Args
-            betas (ndarray): 1Xd array of beta values to set
-
-        Returns
-            None
-        """
-        self.__cv_splits[self.__current_split].betas = betas
+        return self.__current_split.get_param(parameter)
 
     def _set_param(self, param, value):
         """set parameter of current training split
 
-        Adrgs
+        Args
             param (str): dictionary key to set
             value (object): value to associate with provided key
         """
-        self.__cv_splits[self.__current_split].parameters[param] = value
+        self.__current_split.set_param(param, value)
 
     def __generate_splits(self, x_train, y_train, x_val, y_val):
         """generate training splits
@@ -472,12 +421,11 @@ class MyClassifier(ABC):
                         parameters=parameters
                     )
                 )
+
+        # if there are no cross-val splits seen in the classifier param set
         else:
             parameters = {}
             for key, value in self.__parameters.items():
-                if not isinstance(value, list):
-                    value = [value]
-
                 parameters[key] = value[0]
 
             splits.append(
@@ -511,7 +459,7 @@ class MyClassifier(ABC):
         if len(self.__cv_splits) == 1:
             return self.__cv_splits[0].betas
         else:
-            return self.__cv_splits[self.__current_split].betas
+            return self.__current_split.betas
 
     @property
     def dict(self):
@@ -527,31 +475,34 @@ class MyClassifier(ABC):
 
     @property
     def _d(self):
-        return self.__cv_splits[self.__current_split].d
+        return self.__current_split.d
 
     @property
     def _n(self):
-        return self.__cv_splits[self.__current_split].n
+        return self.__current_split.n
 
     @property
     def _x(self):
-        return self.__x[self.__cv_splits[self.__current_split].train_idx]
+        if self.__current_split.has_kernel:
+            return self.__current_split.kernel
+        else:
+            return self.__x[self.__current_split.train_idx]
 
     @property
     def _x_val(self):
-        return self.__x[self.__cv_splits[self.__current_split].val_idx]
+        return self.__x[self.__current_split.val_idx]
 
     @property
     def _y(self):
-        return self.__y[self.__cv_splits[self.__current_split].train_idx]
+        return self.__y[self.__current_split.train_idx]
 
     @property
     def _y_val(self):
-        return self.__y[self.__cv_splits[self.__current_split].val_idx]
+        return self.__y[self.__current_split.val_idx]
 
     @property
     def __current_split(self):
-        """retrieve split number
+        """retrieve current  training split
 
         matches thread name to dictionary map of training splits
 
@@ -562,101 +513,17 @@ class MyClassifier(ABC):
             Exception: if the thread doesn't have an associated split number
             ThreadError: re raised
         """
+        return self.__cv_splits[self.__current_split_idx]
+
+    @property
+    def __current_split_idx(self):
         try:
             tid = threading.current_thread()
             split = self.__thread_split_map.get(tid.getName(), -1)
 
             if split == -1:
-                raise SplitNotFoundException('split not found')
+                raise Exception('split not found')
 
-            return split
         except threading.ThreadError as e:
             print([str(a) for a in e.args])
-            raise threading.ThreadError()
-
-
-# ---------------------------------------------------------------
-# helper classes
-# ---------------------------------------------------------------
-class MetricSet:
-    def __init__(self, acc=0., err=1., pre=0., rec=0.,
-                 f1=0., fpr=1., tpr=0., specificity=0.):
-        self.accuracy = acc
-        self.error = err
-        self.precision = pre
-        self.recall = rec
-        self.f1_measure = f1
-        self.fpr = fpr
-        self.tpr = tpr
-        self.specificity = specificity
-
-    def __str__(self):
-        return ','.join([str(round(val, 4)) for key, val in self.dict.items()])
-
-    @property
-    def dict(self):
-        return {
-            'accuracy': self.accuracy,
-            'error': self.error,
-            'precision': self.precision,
-            'recall': self.recall,
-            'f1_measure': self.f1_measure,
-            'fpr': self.fpr,
-            'tpr': self.tpr,
-            'specificity': self.specificity
-        }
-
-    def from_dict(self, data):
-        if data == 'none':
-            return self
-
-        self.accuracy = data['accuracy']
-        self.error = data['error']
-        self.precision = data['precision']
-        self.recall = data['recall']
-        self.f1_measure = data['f1_measure']
-        self.fpr = data['fpr']
-        self.tpr = data['tpr']
-        self.specificity = data['specificity']
-
-        return self
-
-
-class TrainingSplit:
-    def __init__(self, n=0, d=0, train_idx=None, val_idx=None, parameters=None, betas=None):
-        self.n = n
-        self.d = d
-        self.train_idx = train_idx
-        self.val_idx = val_idx
-        self.parameters = parameters if parameters is not None else {}
-        self.betas = betas if betas is not None else []
-        self.train_metrics = None
-        self.val_metrics = None
-
-    @property
-    def dict(self):
-        return {
-            'n': self.n,
-            'd': self.d,
-            'train_idx': self.train_idx if not None else [],
-            'val_idx': self.val_idx if not None else [],
-            'parameters': self.parameters,
-            'betas': self.betas,
-            'train_metrics': self.train_metrics.dict if self.train_metrics is not None else 'none',
-            'val_metrics': self.val_metrics.dict if self.val_metrics is not None else 'none'
-        }
-
-    def from_dict(self, data):
-        if data == 'none':
-            return None
-
-        self.betas = data['betas']
-        self.d = data['d']
-        self.train_metrics = MetricSet().from_dict(data['train_metrics'])
-        self.val_metrics = MetricSet().from_dict(data['val_metrics'])
-        self.n = data['n']
-        self.parameters = data['parameters']
-        self.train_idx = data['train_idx']
-        self.val_idx = data['val_idx']
-
-        return self
+            raise e

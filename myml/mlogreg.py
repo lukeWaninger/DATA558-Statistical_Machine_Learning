@@ -100,12 +100,6 @@ class MyLogisticRegression(MyClassifier):
         self._set_param('eta', t)
         return t
 
-    def __calc_t_init(self):
-        x, n, l = self._x, self._n, self._param('lambda')
-
-        m = np.max(1/n * np.linalg.eigvals(x.T @ x)) + l
-        return 1 / np.float(m)
-
     def __computegrad(self, b):
         x, y, n, l = self._x, self._y, self._n, self._param('lambda')
 

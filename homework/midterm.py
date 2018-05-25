@@ -1,5 +1,5 @@
 from myml.my_multiclassifier import MultiClassifier
-from myml.mlinear_svm import MyLinearSVM
+from myml.msvm import MyLinearSVM
 import numpy as np
 import os
 import pandas as pd
