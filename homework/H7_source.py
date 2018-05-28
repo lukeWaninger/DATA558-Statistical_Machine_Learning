@@ -4,73 +4,28 @@ import numpy  as np
 from multiprocessing.dummy import Pool as threadPool
 import multiprocessing
 import pandas as pd
+import plotly.graph_objs as go
+import plotly.offline as py
 import re
 from scipy.special import comb
 from scipy.stats import mode
 from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 
-def test_grad(eps=1e-6):
-    n = 5
-    for i in range(n):
-        np.random.seed(0)
-        beta = -np.random.normal(size=n)
-        x = np.random.randn(n, n)
-        k = pairwise.rbf_kernel(x, x)
-        y = np.random.choice([0, 1], size=5)
-        l = 0.5
-
-        f1 = objective(k, y, l, beta)
-        beta[i] = beta[i] + eps
-        f2 = objective(k, y, l, beta)
-
-        grad = gradient(k, y, beta, l)[i]
-        print(f'Estimated and calculated values of beta[{i}]: {(f2-f1)/eps}, {grad}')
-
-        assert np.isclose((f2 - f1) / eps, grad), \
-            f'Estimated gradient {str((f2-f1)/eps)} is not approximately equal to the computed gradient {str(grad)}'
-
-    print('Test passed')
+exp   = np.exp
+na    = np.newaxis
+norm  = np.linalg.norm
+ident = np.identity
+np.random.seed(42)
+py.init_notebook_mode(connected=True)
 
 
-def timeit(func):
-    t = dt.datetime.now()
-    v = func()
-    print(f'{dt.datetime.now() - t}')
-    return v
-
-
-def track_total(estimator, eargs):
-    if isinstance(estimator, OVR):
-        total = len(np.unique(y)) * len(eargs)
-    elif isinstance(estimator, OVO):
-        total = comb(len(np.unique(y)), 2) * len(eargs)
-    else:
-        total = len(eargs)
-    return int(total)
-
-
-def track_bar(total, desc):
-    def track_it(total, trackq):
-        pbar = tqdm(total=total, desc=desc)
-        while True:
-            update = trackq.get()
-
-            if update == 'END_FLAG':
-                break
-            else:
-                pbar.update()
-
-    trackq = multiprocessing.Queue()
-    multiprocessing.Process(target=track_it, args=(total, trackq)).start()
-    return trackq
-
-
-def backtracking(k, y, n, beta, l, eta, grad, obj, a=0.5, t_eta=0.8, max_iter=5):
+def backtracking(k, y, beta, l, eta, grad, obj, a=0.5, t_eta=0.8, max_iter=5):
     gb = grad(k, y, beta, l)
     n_gb = norm(gb)
 
@@ -87,6 +42,91 @@ def backtracking(k, y, n, beta, l, eta, grad, obj, a=0.5, t_eta=0.8, max_iter=5)
             i += 1
 
     return eta
+
+
+def cv(x, y, estimator, eargs, nfolds=3):
+    pbar = track_bar(track_total(estimator, eargs, y), desc=f'{nfolds}-Fold CV: {estimator}')
+    step = int(x.shape[0] / nfolds)
+
+    for arg in eargs:
+        tidx = np.random.choice(np.arange(len(y)), 2 * step)
+        vidx = list(set(np.arange(len(y))) - set(tidx))
+        xa, ya, xva, yva = x[tidx, :], y[tidx], x[vidx, :], y[vidx]
+        estimator = estimator.fit(xa, ya, xva, yva, arg, pbar)
+
+    [pbar.put(f) for f in [1, 'END_FLAG']]
+    return estimator
+
+
+def pca_plot(pca, n_obs, n_klass):
+    title   = 'Top 2 Principle Components'
+    colors  = ['#A7A37E', '#046380', '#BA2309']
+    symbols = ['circle', 'square']
+    algos   = ['mykit', 'scikit']
+    data = [
+        go.Scatter(
+            name=f'{algos[j]} class {i}',
+            x=pc[n_obs*i:n_obs*i+n_obs, 0],
+            y=pc[n_obs*i:n_obs*i+n_obs, 1],
+            mode='markers',
+            marker=dict(
+                size=12,
+                line=dict(width=1),
+                color=colors[i],
+                symbol=symbols[j],
+                opacity=1.
+            )
+        )
+        for i in range(n_klass)
+        for j, pc in enumerate(pca)
+    ]
+
+    layout = go.Layout(
+        title=title,
+        xaxis=dict(
+            title='x',
+            gridwidth=1
+        ),
+        yaxis=dict(
+            title='y',
+            gridwidth=1
+        )
+    )
+
+    fig = go.Figure(data=data, layout=layout)
+    py.iplot(fig)
+
+
+def timeit(func):
+    t = dt.datetime.now()
+    v = func()
+    print(f'{dt.datetime.now() - t}')
+    return v
+
+
+def track_bar(total, desc):
+    def track_it(total, trackq):
+        pbar = tqdm(total=total, desc=desc)
+        while True:
+            update = trackq.get()
+            pbar.update(1)
+
+            if update == 'END_FLAG':
+                break
+
+    trackq = multiprocessing.Queue()
+    multiprocessing.Process(target=track_it, args=(total, trackq)).start()
+    return trackq
+
+
+def track_total(estimator, eargs, y):
+    if isinstance(estimator, OVR):
+        total = len(np.unique(y)) * len(eargs)
+    elif isinstance(estimator, OVO):
+        total = comb(len(np.unique(y)), 2) * len(eargs)
+    else:
+        total = len(eargs)
+    return int(total)
 
 
 class Estimator(object):
@@ -281,38 +321,3 @@ class OVO(Multiclass):
         idx = np.concatenate((pos, neg))
         xt, yt = x[idx, :], yt[idx]
         return xt, yt
-
-
-
-def ex2():
-    def gen_ki(m, s):
-        return np.random.normal(m, s, 1)
-
-    def gen_k(n, m):
-        means = np.arange(0, n*m, 2)
-        np.random.shuffle(means)
-
-        return np.array([[gen_ki(mi, 1) for mi in means] for i in range(n)]).reshape((n, m))
-
-    def oja(x, eta=1, max_iter=50):
-        n, d = x.shape
-        w, w1 = np.random.normal(size=d)/norm(d), None
-
-        for i in range(max_iter):
-            w  = w + eta*((x.T @ x) @ w)
-            w /= norm(w)
-            eta /= i+1
-
-        for i in range(2, max_iter):
-            w1 = w1 + eta*(x @ x.T @ (ident(d) - w @ w.T)) @ w1
-            w1  /= norm(w1)
-            eta /= i+1
-
-        pc = np.array([w @ x.T, w1 @ x.T]).T
-        return pc
-
-    n_obs, n_feat, n_k = 30, 60, 3
-    x = np.array([gen_k(n_obs, n_feat) for i in range(n_k)])
-
-    mykit_pca = oja(x)
-    scikt_pca = PCA().fit_transform(X=x)
