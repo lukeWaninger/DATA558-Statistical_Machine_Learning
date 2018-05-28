@@ -6,5 +6,7 @@
 *.gz
 *.npy
 *.pk
+*.JPEG
+*cache*
 
 settings.py
