@@ -109,10 +109,11 @@ def track_bar(total, desc):
         pbar = tqdm(total=total, desc=desc)
         while True:
             update = trackq.get()
-            pbar.update(1)
 
             if update == 'END_FLAG':
                 break
+            else:
+                pbar.update(1)
 
     trackq = multiprocessing.Queue()
     multiprocessing.Process(target=track_it, args=(total, trackq)).start()
@@ -169,10 +170,10 @@ class Multiclass(object):
     def _split(self):
         yield
 
-    def fit(self):
+    def fit(self, x, y, xv, yv, earg, pbar=None):
         yield
 
-    def predict(self):
+    def predict(self, xpre, xtrain, labels):
         yield
 
     def predict_proba(self):
@@ -260,9 +261,9 @@ class OVO(Multiclass):
     @property
     def kl_args(self):
         return '\n'.join([' '.join([
-            re.sub(r'\.', 'vs', k), f'lambda={round(ovo.eargmap[k]["lambda"], 4)}',
-            f'err={round(ovo.eargmap[k]["err"], 4)}'])
-            for k in ovo.eargmap.keys()])
+            re.sub(r'\.', 'vs', k), f'lambda={round(self.eargmap[k]["lambda"], 4)}',
+            f'err={round(self.eargmap[k]["err"], 4)}'])
+            for k in self.eargmap.keys()])
 
     def fit(self, x, y, xv, yv, earg, pbar=None):
         def compute(args):
@@ -284,7 +285,7 @@ class OVO(Multiclass):
                 'beta': beta
             }
 
-        pairs = it.combinations(np.unique(y), 2)
+        pairs = list(it.combinations(np.unique(y), 2))
         pb = track_bar(len(pairs), f'fitting {self}') if pbar is None else pbar
         fitr = self._map(compute, [(s[0], s[1], earg, pb) for s in pairs])
         if pbar is None: pb.put('END_FLAG')
@@ -294,20 +295,18 @@ class OVO(Multiclass):
         return self
 
     def predict(self, xpre, xtrain, labels):
-        def compute(args):
-            klp, kln = args
-            klkey = f'{klp}.{kln}'
-            earg = self.eargmap[klkey]['lambda']
-            beta = self.eargmap[klkey]['beta']
+        kp = self.estimator.kernel.compute(xpre, xtrain)
 
-            xti = self._split(klp, kln, x, y)[0]
-            kp = self.estimator.kernel.compute(xpre, xti)
+        def compute(args):
+            pkl, nkl = args
+            klkey = f'{pkl}.{nkl}'
+            beta = self.eargmap[klkey]['beta']
 
             return klkey, self.estimator.predict_proba(kp, beta)
 
-        pairs = it.combinations(np.unique(y), 2)
+        pairs = it.combinations(np.unique(labels), 2)
         predictions = np.array(self._map(compute, pairs))
-        predictions = np.apply_along_axis(lambda row: np.choice(mode(row).mode, 1), axis=0, arr=predictions)
+        predictions = np.apply_along_axis(lambda row: np.random.choice(mode(row).mode, 1), axis=0, arr=predictions)
         return predictions
 
     @staticmethod
@@ -315,7 +314,7 @@ class OVO(Multiclass):
         pos = np.where(y == int(klp))[0]
         neg = np.where(y != int(kln))[0]
 
-        yt = y ** 0
+        yt = y**0
         yt[neg] = -1
 
         idx = np.concatenate((pos, neg))
