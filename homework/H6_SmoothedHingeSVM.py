@@ -1,8 +1,8 @@
 from myml.my_multiclassifier import MultiClassifier
+from myml.regularization import *
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-import sys
 
 
 def ex1():
@@ -172,14 +172,12 @@ def ex1():
             {
                 'type': 'linear_svm',
                 'parameters': {
-                    'loss': ['smoothed_hinge'],
-                    'h': [0.5],
                     'algo': ['fgrad'],
                     'alpha': [0.5],
                     'bt_max_iter': [50],
                     'eps': [.001],
                     'eta': [1.],
-                    'lambda': list(np.linspace(0.001, .01, 10)),
+                    'regularization': [RLP(2, l) for l in np.linspace(0.001, .01, 10)],
                     'max_iter': [100],
                     't_eta': [0.8]
                 }

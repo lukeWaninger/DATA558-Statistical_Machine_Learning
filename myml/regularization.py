@@ -4,8 +4,9 @@ import numpy as np
 
 
 class Regularizer(ABC):
-    def __init__(self, lamda):
+    def __init__(self, lamda, p):
         self._lambda = lamda
+        self._p = p
 
     @abstractmethod
     def dreg(self, betas, k=None):
@@ -18,10 +19,14 @@ class Regularizer(ABC):
     def set_lambda(self, l):
         self._lambda = l
 
+    def __repr__(self):
+        return f'<L{self._p} norm, lamda={self._lambda}>'
+
 
 class RL1(Regularizer):
     def __init__(self, lamda=1.):
-        super().__init__(lamda)
+        super().__init__(lamda, p=1)
+        self._p = 1
         raise NotImplementedError
 
     def dreg(self, betas, k=None):
@@ -36,12 +41,10 @@ class RL1(Regularizer):
 
 class RLP(Regularizer):
     def __init__(self, p, lamda=1.):
-        super().__init__(lamda)
-
-        self.__p = p
+        super().__init__(lamda, p=2)
 
     def dreg(self, betas, k=None):
-        p, l, norm = self.__p, self._lambda, np.linalg.norm
+        p, l, norm = self._p, self._lambda, np.linalg.norm
 
         if k is not None:
             return p*l*(k@betas)**(p-1)
@@ -49,7 +52,7 @@ class RLP(Regularizer):
             return p*l*norm(betas)**(p-1)
 
     def reg(self, betas, k=None):
-        p, l, norm = self.__p, self._lambda, np.linalg.norm
+        p, l, norm = self._p, self._lambda, np.linalg.norm
 
         if k is not None:
             return l*(betas @ k @ betas)
@@ -57,7 +60,8 @@ class RLP(Regularizer):
             return p*l*norm(betas)**(p-1)
 
     def __str__(self):
-        return 'LP'
+        p = str(self._p)
+        return f'L{p} l={self._lambda}'
 
 
 class REGULARIZATION_METHODS(Enum):

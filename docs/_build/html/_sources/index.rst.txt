@@ -1,0 +1,23 @@
+.. DATA558 Statistical ML documentation master file, created by
+   sphinx-quickstart on Thu May 17 11:42:48 2018.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+Welcome to DATA558 Statistical ML's documentation!
+==================================================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
+.. automodule:: myml.my_classifier
+   :members:
+   :private-members:
+
+.. automodule:: myml.my_multiclassifier
+   :members:
+   :private-members:
+
+.. automodule:: myml.mlinear_svm
+   :members:
+   :private-members:

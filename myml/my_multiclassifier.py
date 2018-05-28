@@ -1,7 +1,4 @@
-from myml.mlassoreg import MyLASSORegression
-from myml.mlogreg import MyLogisticRegression
-from myml.mridgereg import MyRidgeRegression
-from myml.msvm import MyLinearSVM
+from myml.msvm import MySVM
 import multiprocessing
 import numpy as np
 import os
@@ -110,9 +107,10 @@ class MultiClassifier(object):
         Returns
             None
         """
+        lp = self.__log_path
         predictions = self.predict(x)
         predictions = [(i, p) for i, p in enumerate(predictions)]
-        pd.DataFrame(predictions).to_csv(f'{self.__log_path}/{self.task}.csv',
+        pd.DataFrame(predictions).to_csv(f'{lp}/{self.task}.csv',
                                          index=None,
                                          header=['Id', 'Category'])
 
@@ -225,11 +223,11 @@ class MultiClassifier(object):
             cv_type = cv['type']
 
             if cv_type == 'linear_svm':
-                classifier = MyLinearSVM(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
-                                         parameters=cv['parameters'],
-                                         task=task + " [linear_svm]",
-                                         logging_level=self.__logging_level,
-                                         log_queue=self.__log_queue)
+                classifier = MySVM(x_train=x, y_train=y, x_val=x_v, y_val=y_v,
+                                   parameters=cv['parameters'],
+                                   task=task + " [linear_svm]",
+                                   logging_level=self.__logging_level,
+                                   log_queue=self.__log_queue)
 
             else:
                 raise ValueError('classifier model not found')
@@ -243,7 +241,7 @@ class MultiClassifier(object):
 
             tasks = cv_d['task']
             if 'linear_svm' in tasks:
-                cv_d = MyLinearSVM(x_train=None, y_train=None, parameters=None, dict_rep=cv_d)
+                cv_d = MySVM(x_train=None, y_train=None, parameters={}, dict_rep=cv_d)
 
             else:
                 cv_d = None
@@ -286,7 +284,8 @@ class MultiClassifier(object):
             None
         """
         start = time.time()
-        path = f'{self.__log_path}/{self.task}.csv'
+        lp = self.__log_path
+        path = f'{lp}/{self.task}.csv'
 
         # continue until no child processes are running
         k = len(np.unique(self.__y))

@@ -3,7 +3,7 @@ import numpy as np
 
 class MetricSet(object):
     def __init__(self, y_true=None, y_hat=None, data=None):
-        if dict is not None:
+        if data is not None:
             self.__from_dict(data)
 
         elif y_true is not None and y_hat is not None:

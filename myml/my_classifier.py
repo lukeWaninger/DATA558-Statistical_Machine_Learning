@@ -86,13 +86,14 @@ class MyClassifier(ABC):
         if len(self.__cv_splits) > 1:
             splits, metrics = self.__cv_splits, []
             val_errors = [s.val_metrics.dict['error'] for s in splits if s.val_metrics is not None]
+            val_errors = [e for e in val_errors if e > 0]
             idx = np.argmin(val_errors) if len(val_errors) > 0 else 0
 
             # create a new split with parameters from the best
+            n, d = self.__x.shape
             new_split = TrainingSplit(
-                n=self._n,
-                d=self._d,
-                train_idx=np.arange(self._n),
+                n=n, d=d,
+                train_idx=np.arange(n),
                 parameters=splits[idx].parameters
             )
             new_split.parameters['eta'] = 1.
@@ -137,10 +138,6 @@ class MyClassifier(ABC):
             self.__grad_descent()
         elif algo == 'fgrad':
             self.__fast_grad_descent()
-        elif algo == 'random_cd':
-            raise NotImplemented('random coordinate descent not implemented')
-        elif algo == 'cyclic_cd':
-            raise NotImplemented('cyclic coordinate descent not implemented')
 
         thread_name = threading.currentThread().getName()
         del self.__thread_split_map[thread_name]
@@ -223,7 +220,7 @@ class MyClassifier(ABC):
 
             i += 1
             self._set_param('betas', b0)
-            self.log_metrics([self._param('lambda'), i, t, self._objective(b0)])
+            self.log_metrics([self._param('regularization'), i, t, self._objective(b0)])
 
             if np.isclose(0, t):
                 break
@@ -260,24 +257,23 @@ class MyClassifier(ABC):
             return
 
         split = self.__current_split
-        y_hat = self.predict(self.__x[split.train_idx])
-        y_true = self._y[split.train_idx]
+        y_hat = self.predict(self.__x)
 
-        train_metrics = MetricSet(y_hat=y_hat, y_true=y_true)
-        self.__cv_splits[split].train_metrics = train_metrics
+        train_metrics = MetricSet(y_hat=y_hat, y_true=self._y)
+        split.train_metrics = train_metrics
 
-        if self.__cv_splits[split].val_idx is not None:
-            y_hat = self.predict(self.__x[split.val_idx])
-            y_true = self._y[split.val_idx]
+        if split.val_idx is not None:
+            y_hat = self.predict(self._x_val)
 
-            val_metrics = MetricSet(y_hat=y_hat, y_true=y_true)
-            self.__cv_splits[split].val_metrics = val_metrics
+            val_metrics = MetricSet(y_hat=y_hat, y_true=self._y_val)
+            split.val_metrics = val_metrics
         else:
             val_metrics = None
 
         # write basic classifier state
         pstr = ', '.join([str(v) for k, v in split.parameters.items()])
-        arg_str = ', '.join(['%.7f' % a if not float(a).is_integer() else str(a) for a in args])
+        arg_str = ', '.join(['%.7f' % a if isinstance(a, float) and not float(a).is_integer() else str(a) for a in
+                             args])
 
         # write row by current logging level
         no_val_set = 'no_val_set'
@@ -518,11 +514,13 @@ class MyClassifier(ABC):
     @property
     def __current_split_idx(self):
         try:
-            tid = threading.current_thread()
-            split = self.__thread_split_map.get(tid.getName(), -1)
+            tname = threading.currentThread().getName()
+            split = self.__thread_split_map.get(tname, -1)
 
             if split == -1:
                 raise Exception('split not found')
+
+            return split
 
         except threading.ThreadError as e:
             print([str(a) for a in e.args])

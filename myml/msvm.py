@@ -1,8 +1,5 @@
 from myml.my_classifier import MyClassifier
 from myml.loss_functions import *
-from myml.regularization import *
-from enum import Enum
-import numpy as np
 
 
 class MySVM(MyClassifier):
@@ -14,15 +11,11 @@ class MySVM(MyClassifier):
         Args:
             x_train (ndarray): nXm array of training samples
             y_train (ndarray: nX1 array of labels
-            parameters (dict) - required keys:
-                loss (str): $\in$ { 'squared_hinge', 'smoothed_hinge' }
-                h (float): required when loss is set to smoothed_hinge
             *args:
             **kwargs:
         """
         super().__init__(x_train, y_train, parameters, args, kwargs)
-        self.loss_function = SmoothHinge(0.5, RLP(p=2, lamda=))
-
+        self.loss_function = SmoothHinge(0.5)
 
     def predict(self, x, beta=None):
         """predict binary classification {-1, 1}
@@ -55,3 +48,13 @@ class MySVM(MyClassifier):
         return x@beta
 
     def _compute_grad(self, beta):
+        return self.loss_function.gradient(
+            self._x, self._y, self._n, self._d, beta, self._param('regularization'))
+
+    def _objective(self, beta):
+        return self.loss_function.objective(
+            self._x, self._y, self._n, beta, self._param('regularization'))
+
+    def __str__(self):
+        p = str(self._param('regularization'))
+        return f'SVM-{p}{str(self.loss_function)}'

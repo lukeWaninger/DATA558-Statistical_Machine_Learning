@@ -1,0 +1,863 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>myml.my_classifier &mdash; DATA558 Statistical ML  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> DATA558 Statistical ML
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">DATA558 Statistical ML</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>myml.my_classifier</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for myml.my_classifier</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">abc</span> <span class="k">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="k">import</span> <span class="n">KFold</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+
+<div class="viewcode-block" id="MyClassifier"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier">[docs]</a><span class="k">class</span> <span class="nc">MyClassifier</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;my classifier base class&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x_train (ndarray): nXd array of input samples</span>
+<span class="sd">            y_train (ndarray: nX1 array of training labels</span>
+<span class="sd">            parameters (dictionary): child class parameters</span>
+<span class="sd">            *args:</span>
+<span class="sd">            **kwargs:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># load this classifier from the dict representation if provided</span>
+        <span class="k">if</span> <span class="s1">&#39;dict_rep&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__load_from_dict</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;dict_rep&#39;</span><span class="p">])</span>
+
+        <span class="c1"># otherwise begin loading parameters</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s1">&#39;x_val&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="ow">and</span> <span class="s1">&#39;y_val&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">x_val</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;x_val&#39;</span><span class="p">]</span>
+                <span class="n">y_val</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;y_val&#39;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;task&#39;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span> <span class="o">=</span> <span class="n">parameters</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__generate_splits</span><span class="p">(</span><span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)</span>
+
+        <span class="c1"># setup cross-validation and logging features</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;logging_level&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;logging_level&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;none&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;log_path&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;log_path&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__write_to_disk</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;write_to_disk&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;write_to_disk&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__log_queue</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;loq_queue&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;loq_queue&#39;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_compute_grad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+        <span class="k">yield</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_objective</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+        <span class="k">yield</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">yield</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">predict_proba</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">yield</span>
+
+<div class="viewcode-block" id="MyClassifier.fit"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;fit the classifier</span>
+
+<span class="sd">        proceeds through each cross validation split, training each using the</span>
+<span class="sd">        algorithm defined by the &#39;algo&#39; key provided in parameters</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            trained classifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">)):</span>
+            <span class="c1"># setup running thread</span>
+            <span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_one</span><span class="p">)</span>
+            <span class="n">thread_name</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;split_{str(i)}&#39;</span>
+            <span class="n">thread</span><span class="o">.</span><span class="n">setName</span><span class="p">(</span><span class="n">thread_name</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span><span class="p">[</span><span class="n">thread_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># write self to disk</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">__write_to_disk</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">write_to_disk</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="MyClassifier.fit_one"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.fit_one">[docs]</a>    <span class="k">def</span> <span class="nf">fit_one</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;fit a single training fold&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_betas</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_d</span><span class="p">))</span>
+
+        <span class="n">algo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;algo&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;grad&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__grad_descent</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;fgrad&#39;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__fast_grad_descent</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;random_cd&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">NotImplemented</span><span class="p">(</span><span class="s1">&#39;random coordinate descent not implemented&#39;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;cyclic_cd&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="bp">NotImplemented</span><span class="p">(</span><span class="s1">&#39;cyclic coordinate descent not implemented&#39;</span><span class="p">)</span>
+
+        <span class="n">thread_name</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">currentThread</span><span class="p">()</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span><span class="p">[</span><span class="n">thread_name</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="MyClassifier.predict_with_best_fold"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.predict_with_best_fold">[docs]</a>    <span class="k">def</span> <span class="nf">predict_with_best_fold</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;error&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;predict the given labels</span>
+
+<span class="sd">        uses the provided metric to determine which fold to extract parameters.</span>
+<span class="sd">        once identified, a new fold is generated and trained using those parameters.</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            x (ndarray): nXd array of samples to predict</span>
+<span class="sd">            metric (str) - optional: metric to use for finding the optimal</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            [({-1, 1})]: list of predictions</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">            ValueError: if provided metric is not defined</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">splits</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span>
+        <span class="k">if</span> <span class="n">metric</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;fpr&#39;</span><span class="p">,</span> <span class="s1">&#39;error&#39;</span><span class="p">]:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">([</span><span class="n">s</span><span class="o">.</span><span class="n">val_metrics</span><span class="o">.</span><span class="n">dict</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">splits</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">metric</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">,</span> <span class="s1">&#39;precision&#39;</span><span class="p">,</span> <span class="s1">&#39;recall&#39;</span><span class="p">,</span> <span class="s1">&#39;specificity&#39;</span><span class="p">,</span> <span class="s1">&#39;f1_measure&#39;</span><span class="p">,</span> <span class="s1">&#39;tpr&#39;</span><span class="p">]:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">([</span><span class="n">s</span><span class="o">.</span><span class="n">val_metrics</span><span class="o">.</span><span class="n">dict</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">splits</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;provided metric is not defined&#39;</span><span class="p">)</span>
+
+        <span class="c1"># create a new split with parameters from the best</span>
+        <span class="n">new_split</span> <span class="o">=</span> <span class="n">TrainingSplit</span><span class="p">(</span>
+            <span class="n">n</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">d</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="n">train_idx</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="n">parameters</span><span class="o">=</span><span class="n">splits</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_split</span><span class="p">)</span>
+
+        <span class="c1"># train with the identified parameter set</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;training with all features </span><span class="si">%s</span><span class="s1">: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">splits</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">)))</span>
+
+        <span class="n">thread_name</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">current_thread</span><span class="p">()</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span><span class="p">[</span><span class="n">thread_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_param</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="mf">1.</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_one</span><span class="p">()</span>
+
+        <span class="c1"># set it back because fit_one deleted the dictionary entry</span>
+        <span class="n">thread_name</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">current_thread</span><span class="p">()</span><span class="o">.</span><span class="n">getName</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span><span class="p">[</span><span class="n">thread_name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">__compute_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">prediction_func</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;compute metrics at the current classifier state</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            x (ndarray): nXd array of input samples</span>
+<span class="sd">            y (ndarray): nX1 of true labels</span>
+<span class="sd">            prediction_func (function) - optional: prediction function</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            MetricSet: containing classifier performance metrics</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MetricSet</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">prediction_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pre</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pre</span> <span class="o">=</span> <span class="n">prediction_func</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">tp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">yh</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">yt</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">yh</span><span class="p">,</span> <span class="n">yt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pre</span><span class="p">,</span> <span class="n">y</span><span class="p">)])</span>
+        <span class="n">tn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">yh</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="n">yt</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="k">for</span> <span class="n">yh</span><span class="p">,</span> <span class="n">yt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pre</span><span class="p">,</span> <span class="n">y</span><span class="p">)])</span>
+        <span class="n">fp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">yh</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">yt</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="k">for</span> <span class="n">yh</span><span class="p">,</span> <span class="n">yt</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pre</span><span class="p">,</span> <span class="n">y</span><span class="p">)])</span>
+
+        <span class="c1"># accuracy, error, recall, tpr, fpr</span>
+        <span class="k">if</span> <span class="n">p</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">acc</span> <span class="o">=</span> <span class="n">rec</span> <span class="o">=</span> <span class="n">tpr</span> <span class="o">=</span> <span class="n">fpr</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">acc</span> <span class="o">=</span> <span class="p">(</span><span class="n">tp</span> <span class="o">+</span> <span class="n">tn</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span>
+            <span class="n">rec</span> <span class="o">=</span> <span class="n">tp</span> <span class="o">/</span> <span class="n">p</span>
+            <span class="n">tpr</span> <span class="o">=</span> <span class="n">rec</span>
+            <span class="n">fpr</span> <span class="o">=</span> <span class="n">fp</span> <span class="o">/</span> <span class="n">n</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">acc</span>
+        <span class="n">specificity</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">fpr</span>
+
+        <span class="c1"># precision</span>
+        <span class="k">if</span> <span class="n">tp</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">fp</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">prec</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">prec</span> <span class="o">=</span> <span class="n">tp</span> <span class="o">/</span> <span class="p">(</span><span class="n">tp</span> <span class="o">+</span> <span class="n">fp</span><span class="p">)</span>
+
+        <span class="c1"># f1 measure</span>
+        <span class="k">if</span> <span class="n">prec</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">rec</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">f1</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="n">prec</span> <span class="o">**</span> <span class="o">-</span><span class="mi">1</span> <span class="o">+</span> <span class="n">rec</span> <span class="o">**</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MetricSet</span><span class="p">(</span><span class="n">acc</span><span class="o">=</span><span class="n">acc</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="n">err</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="n">prec</span><span class="p">,</span> <span class="n">rec</span><span class="o">=</span><span class="n">rec</span><span class="p">,</span>
+                         <span class="n">f1</span><span class="o">=</span><span class="n">f1</span><span class="p">,</span> <span class="n">fpr</span><span class="o">=</span><span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span><span class="o">=</span><span class="n">tpr</span><span class="p">,</span> <span class="n">specificity</span><span class="o">=</span><span class="n">specificity</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__backtracking</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;backtracking line search</span>
+
+<span class="sd">        use the provided beta values to determine optimum learning rate for</span>
+<span class="sd">        current iteration</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            beta (ndarray): 1xD array of weight coefficients</span>
+
+<span class="sd">        Return</span>
+<span class="sd">            Float: learning rate</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">t_eta</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">=</span> <span class="n">p</span><span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">),</span> <span class="n">p</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">),</span> <span class="n">p</span><span class="p">(</span><span class="s1">&#39;t_eta&#39;</span><span class="p">),</span> <span class="n">p</span><span class="p">(</span><span class="s1">&#39;bt_max_iter&#39;</span><span class="p">)</span>
+
+        <span class="n">gb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_grad</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+        <span class="n">n_gb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">gb</span><span class="p">)</span>
+
+        <span class="n">found_t</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="ow">not</span> <span class="n">found_t</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max_iter</span><span class="p">:</span>
+            <span class="n">lh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective</span><span class="p">(</span><span class="n">beta</span> <span class="o">-</span> <span class="n">t</span> <span class="o">*</span> <span class="n">gb</span><span class="p">)</span>
+            <span class="n">rh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">-</span> <span class="n">a</span> <span class="o">*</span> <span class="n">t</span> <span class="o">*</span> <span class="n">n_gb</span> <span class="o">**</span> <span class="mi">2</span>
+            <span class="k">if</span> <span class="n">lh</span> <span class="o">&lt;</span> <span class="n">rh</span><span class="p">:</span>
+                <span class="n">found_t</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="n">max_iter</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">t</span> <span class="o">*=</span> <span class="n">t_eta</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_param</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">t</span>
+
+    <span class="k">def</span> <span class="nf">__grad_descent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;gradient descent</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            beta (ndarray) - optional: 1Xd array of weight coefficients</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">(</span><span class="s1">&#39;eta&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">(</span><span class="s1">&#39;max_iter&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">beta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coef_</span>
+        <span class="n">grad_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_grad</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max_iter</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="n">beta</span> <span class="o">-</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">grad_x</span>
+            <span class="n">grad_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_grad</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_betas</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">([</span><span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective</span><span class="p">(</span><span class="n">beta</span><span class="p">)])</span>
+
+    <span class="k">def</span> <span class="nf">__fast_grad_descent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;fast-gradient descent</span>
+
+<span class="sd">        perform gradient descent with the fast-gradient algorithm</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eps</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">(</span><span class="s1">&#39;eps&#39;</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">(</span><span class="s1">&#39;max_iter&#39;</span><span class="p">)</span>
+
+        <span class="n">b0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coef_</span>
+        <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">b0</span><span class="p">)</span>
+        <span class="n">grad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_grad</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">max_iter</span><span class="p">:</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__backtracking</span><span class="p">(</span><span class="n">b0</span><span class="p">)</span>
+
+            <span class="n">b1</span> <span class="o">=</span> <span class="n">theta</span> <span class="o">-</span> <span class="n">t</span> <span class="o">*</span> <span class="n">grad</span>
+            <span class="n">theta</span> <span class="o">=</span> <span class="n">b1</span> <span class="o">+</span> <span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">b1</span> <span class="o">-</span> <span class="n">b0</span><span class="p">)</span>
+            <span class="n">grad</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_grad</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+            <span class="n">b0</span> <span class="o">=</span> <span class="n">b1</span>
+
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_set_betas</span><span class="p">(</span><span class="n">b0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_metrics</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_param</span><span class="p">(</span><span class="s1">&#39;lambda&#39;</span><span class="p">),</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_objective</span><span class="p">(</span><span class="n">b0</span><span class="p">)])</span>
+
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+                <span class="k">break</span>
+
+    <span class="c1"># ---------------------------------------------------------------</span>
+    <span class="c1"># miscellaneous methods</span>
+    <span class="c1"># ---------------------------------------------------------------</span>
+<div class="viewcode-block" id="MyClassifier.load_from_disk"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.load_from_disk">[docs]</a>    <span class="k">def</span> <span class="nf">load_from_disk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;load the classifier from disk</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            path (str): path to classifier file location. name</span>
+<span class="sd">            should match current classifier task</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s%s</span><span class="s1">.pk&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">),</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__load_from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;could not load model from disk: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="MyClassifier.log_metrics"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.log_metrics">[docs]</a>    <span class="k">def</span> <span class="nf">log_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prediction_func</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;metrics logging</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            args ([obj]) - optional: list of additional metrics to print</span>
+<span class="sd">            prediction_func (function) - optional: prediction function</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">split</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span>
+
+        <span class="n">train_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__compute_metrics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y</span><span class="p">,</span> <span class="n">prediction_func</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="n">split</span><span class="p">]</span><span class="o">.</span><span class="n">train_metrics</span> <span class="o">=</span> <span class="n">train_metrics</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="n">split</span><span class="p">]</span><span class="o">.</span><span class="n">val_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">val_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__compute_metrics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_x_val</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y_val</span><span class="p">,</span> <span class="n">prediction_func</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="n">split</span><span class="p">]</span><span class="o">.</span><span class="n">val_metrics</span> <span class="o">=</span> <span class="n">val_metrics</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># write basic classifier state</span>
+        <span class="n">pstr</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+        <span class="n">arg_str</span> <span class="o">=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s1">&#39;</span><span class="si">%.7f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">a</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">float</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="o">.</span><span class="n">is_integer</span><span class="p">()</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">])</span>
+
+        <span class="c1"># write row by current logging level</span>
+        <span class="n">no_val_set</span> <span class="o">=</span> <span class="s1">&#39;no_val_set&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span> <span class="o">==</span> <span class="s1">&#39;minimal&#39;</span><span class="p">:</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="n">arg_str</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span> <span class="o">==</span> <span class="s1">&#39;reduced&#39;</span><span class="p">:</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;</span><span class="si">{self.task}</span><span class="s1">, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;{round(train_metrics.error, 4)}, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;{round(val_metrics.error, 4) if val_metrics is not None else no_val_set}, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;</span><span class="si">{arg_str}</span><span class="s1">&#39;</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span> <span class="o">==</span> <span class="s1">&#39;verbose&#39;</span><span class="p">:</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="n">f</span><span class="s1">&#39;{datetime.datetime.now()}, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;</span><span class="si">{self.task}</span><span class="s1">, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;</span><span class="si">{pstr}</span><span class="s1">, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;{str(train_metrics)}, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;{str(val_metrics)}, &#39;</span> \
+                  <span class="n">f</span><span class="s1">&#39;</span><span class="si">{arg_str}</span><span class="s1">&#39;</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># if there&#39;s a log queue managing multiple classifiers, forward the message</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__log_queue</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__log_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+        <span class="c1"># otherwise print it to the console and output to csv</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s%s</span><span class="s1">.csv&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">),</span> <span class="s1">&#39;a+&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">writelines</span><span class="p">(</span><span class="n">row</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MyClassifier.set_log_queue"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.set_log_queue">[docs]</a>    <span class="k">def</span> <span class="nf">set_log_queue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;set queue for logging metrics</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            queue (multiprocessing.Queue): set the managing log queue</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__log_queue</span> <span class="o">=</span> <span class="n">queue</span></div>
+
+<div class="viewcode-block" id="MyClassifier.write_to_disk"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier.write_to_disk">[docs]</a>    <span class="k">def</span> <span class="nf">write_to_disk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;write current classifier state to disk</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            path (str) - optional: file path to store calassifier</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s%s</span><span class="s1">.pk&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1"> [</span><span class="si">%s</span><span class="s1">] written to disk&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;could not write </span><span class="si">%s</span><span class="s1"> to disk: </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">]))</span></div>
+
+<div class="viewcode-block" id="MyClassifier._param"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier._param">[docs]</a>    <span class="k">def</span> <span class="nf">_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameter</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;retrieve parameter from current training split</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            parameter (str): key into dictionary of parameters</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">            KeyError: if key is not defined</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            object: parameter</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">parameter</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">])</span>
+            <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="MyClassifier._set_betas"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier._set_betas">[docs]</a>    <span class="k">def</span> <span class="nf">_set_betas</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">betas</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;set beta values for current training split</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            betas (ndarray): 1Xd array of beta values to set</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">betas</span> <span class="o">=</span> <span class="n">betas</span></div>
+
+<div class="viewcode-block" id="MyClassifier._set_param"><a class="viewcode-back" href="../../index.html#myml.my_classifier.MyClassifier._set_param">[docs]</a>    <span class="k">def</span> <span class="nf">_set_param</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;set parameter of current training split</span>
+
+<span class="sd">        Adrgs</span>
+<span class="sd">            param (str): dictionary key to set</span>
+<span class="sd">            value (object): value to associate with provided key</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">[</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span></div>
+
+    <span class="k">def</span> <span class="nf">__generate_splits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;generate training splits</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            x_train: nXd ndarray, training samples</span>
+<span class="sd">            y_train: 1Xn ndarray, true training labels</span>
+<span class="sd">            x_val: nXd ndarray, validation samples</span>
+<span class="sd">            y_val: 1Xn ndarray, true validation labels</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            (x, y, [TrainingSplit])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># if</span>
+        <span class="k">if</span> <span class="n">x_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">y_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">x_train</span><span class="p">,</span> <span class="n">x_val</span><span class="p">))</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">x_train</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">y_train</span>
+
+        <span class="n">splits</span><span class="p">,</span> <span class="n">idx_set</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">{}</span>
+        <span class="n">cv_splits</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># calculate how many splits we need to create</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">cv_splits</span> <span class="o">*=</span> <span class="nb">len</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">idx_set</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># adjust which parameter we need for which split</span>
+        <span class="k">def</span> <span class="nf">set_parameter_idx</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">idx_set</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">idx_set</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">idx_set</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># create the splits</span>
+        <span class="k">if</span> <span class="n">cv_splits</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">kf</span> <span class="o">=</span> <span class="n">KFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="n">cv_splits</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+
+            <span class="n">first</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">for</span> <span class="n">train_idx</span><span class="p">,</span> <span class="n">val_idx</span> <span class="ow">in</span> <span class="n">kf</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">first</span><span class="p">:</span>
+                    <span class="n">set_parameter_idx</span><span class="p">()</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">first</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="n">parameters</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="n">idx_set</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>
+
+                <span class="n">splits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">TrainingSplit</span><span class="p">(</span>
+                        <span class="n">n</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">train_idx</span><span class="p">),</span>
+                        <span class="n">d</span><span class="o">=</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                        <span class="n">train_idx</span><span class="o">=</span><span class="n">train_idx</span><span class="p">,</span>
+                        <span class="n">val_idx</span><span class="o">=</span><span class="n">val_idx</span><span class="p">,</span>
+                        <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">parameters</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">parameters</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="n">splits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">TrainingSplit</span><span class="p">(</span>
+                    <span class="n">n</span><span class="o">=</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">d</span><span class="o">=</span><span class="n">x_train</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">train_idx</span><span class="o">=</span><span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_train</span><span class="p">))],</span>
+                    <span class="n">val_idx</span><span class="o">=</span><span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_train</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_train</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_val</span><span class="p">))],</span>
+                    <span class="n">parameters</span><span class="o">=</span><span class="n">parameters</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">splits</span>
+
+    <span class="k">def</span> <span class="nf">__load_from_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dict_rep</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;load classifier from provided dictionary representation</span>
+
+<span class="sd">        Args</span>
+<span class="sd">            dict_rep (dict): dictionary to load keys from</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">task</span> <span class="o">=</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;task&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__x</span> <span class="o">=</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__y</span> <span class="o">=</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span> <span class="o">=</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;logging_level&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span> <span class="o">=</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;log_path&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span> <span class="o">=</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span> <span class="o">=</span> <span class="p">[</span><span class="n">TrainingSplit</span><span class="p">()</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dict_rep</span><span class="p">[</span><span class="s1">&#39;splits&#39;</span><span class="p">]]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">coef_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">betas</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;task&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">task</span><span class="p">,</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="p">,</span>
+            <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">__y</span><span class="p">,</span>
+            <span class="s1">&#39;logging_level&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">__logging_level</span><span class="p">,</span>
+            <span class="s1">&#39;log_path&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">__log_path</span><span class="p">,</span>
+            <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">__parameters</span><span class="p">,</span>
+            <span class="s1">&#39;splits&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">dict</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">]</span>
+        <span class="p">}</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_d</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">d</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_n</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">n</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">train_idx</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_x_val</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__x</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">val_idx</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__y</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">train_idx</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_y_val</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__y</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__cv_splits</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">__current_split</span><span class="p">]</span><span class="o">.</span><span class="n">val_idx</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">__current_split</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;retrieve split number</span>
+
+<span class="sd">        matches thread name to dictionary map of training splits</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">            int: training split</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">            Exception: if the thread doesn&#39;t have an associated split number</span>
+<span class="sd">            ThreadError: re raised</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tid</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">current_thread</span><span class="p">()</span>
+            <span class="n">split</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__thread_split_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tid</span><span class="o">.</span><span class="n">getName</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">split</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s1">&#39;split not found&#39;</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">split</span>
+        <span class="k">except</span> <span class="n">threading</span><span class="o">.</span><span class="n">ThreadError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">])</span>
+            <span class="k">raise</span> <span class="n">threading</span><span class="o">.</span><span class="n">ThreadError</span><span class="p">()</span></div>
+
+
+<span class="c1"># ---------------------------------------------------------------</span>
+<span class="c1"># helper classes</span>
+<span class="c1"># ---------------------------------------------------------------</span>
+<span class="k">class</span> <span class="nc">MetricSet</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">acc</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">err</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">rec</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span>
+                 <span class="n">f1</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">fpr</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">tpr</span><span class="o">=</span><span class="mf">0.</span><span class="p">,</span> <span class="n">specificity</span><span class="o">=</span><span class="mf">0.</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accuracy</span> <span class="o">=</span> <span class="n">acc</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error</span> <span class="o">=</span> <span class="n">err</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">precision</span> <span class="o">=</span> <span class="n">pre</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recall</span> <span class="o">=</span> <span class="n">rec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f1_measure</span> <span class="o">=</span> <span class="n">f1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fpr</span> <span class="o">=</span> <span class="n">fpr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tpr</span> <span class="o">=</span> <span class="n">tpr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">specificity</span> <span class="o">=</span> <span class="n">specificity</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="o">.</span><span class="n">items</span><span class="p">()])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;accuracy&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">accuracy</span><span class="p">,</span>
+            <span class="s1">&#39;error&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">error</span><span class="p">,</span>
+            <span class="s1">&#39;precision&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">precision</span><span class="p">,</span>
+            <span class="s1">&#39;recall&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">recall</span><span class="p">,</span>
+            <span class="s1">&#39;f1_measure&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">f1_measure</span><span class="p">,</span>
+            <span class="s1">&#39;fpr&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">fpr</span><span class="p">,</span>
+            <span class="s1">&#39;tpr&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">tpr</span><span class="p">,</span>
+            <span class="s1">&#39;specificity&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">specificity</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accuracy</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">error</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">precision</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;precision&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recall</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;recall&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">f1_measure</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;f1_measure&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fpr</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;fpr&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tpr</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;tpr&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">specificity</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;specificity&#39;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">self</span>
+
+
+<span class="k">class</span> <span class="nc">TrainingSplit</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">train_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">val_idx</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">betas</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">=</span> <span class="n">d</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_idx</span> <span class="o">=</span> <span class="n">train_idx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_idx</span> <span class="o">=</span> <span class="n">val_idx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">parameters</span> <span class="k">if</span> <span class="n">parameters</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">betas</span> <span class="o">=</span> <span class="n">betas</span> <span class="k">if</span> <span class="n">betas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_metrics</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_metrics</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s1">&#39;n&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">,</span>
+            <span class="s1">&#39;d&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span>
+            <span class="s1">&#39;train_idx&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_idx</span> <span class="k">if</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[],</span>
+            <span class="s1">&#39;val_idx&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_idx</span> <span class="k">if</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="p">[],</span>
+            <span class="s1">&#39;parameters&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span>
+            <span class="s1">&#39;betas&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">betas</span><span class="p">,</span>
+            <span class="s1">&#39;train_metrics&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_metrics</span><span class="o">.</span><span class="n">dict</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">train_metrics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;none&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;val_metrics&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_metrics</span><span class="o">.</span><span class="n">dict</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">val_metrics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s1">&#39;none&#39;</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">from_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">betas</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;betas&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;d&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_metrics</span> <span class="o">=</span> <span class="n">MetricSet</span><span class="p">()</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;train_metrics&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_metrics</span> <span class="o">=</span> <span class="n">MetricSet</span><span class="p">()</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;val_metrics&#39;</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;n&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_idx</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;train_idx&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">val_idx</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;val_idx&#39;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="bp">self</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018, Luke Waninger.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          
+          SphinxRtdTheme.Navigation.enableSticky();
+          
+      });
+  </script> 
+
+</body>
+</html>

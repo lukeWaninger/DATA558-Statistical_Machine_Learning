@@ -68,7 +68,8 @@ class TrainingSplit(object):
 
     def __set_kernel(self):
         try:
-            return KERNEL_DISPATCH[self.get_param('kernel')]
+            method = self.get_param('kernel')
+            return KERNEL_DISPATCH[method] if method is not None else None
         except AttributeError:
             return None
         except KeyError:
